@@ -26,11 +26,18 @@ class image_converter:
         # initialize a publisher to send joints' angular position to a topic called joints_pos
         self.joints_pub = rospy.Publisher("joints_pos", Float64MultiArray, queue_size=10)
 
+        # initialize publishers to send joints' angular position to topics
+        self.joints_pub_ja2 = rospy.Publisher("joint_angle_2_v1", Float64, queue_size=10)
+        self.joints_pub_ja3 = rospy.Publisher("joint_angle_3_v1", Float64, queue_size=10)
+        self.joints_pub_ja4 = rospy.Publisher("joint_angle_4_v1", Float64, queue_size=10)
+
         # initialize a publisher to send joints' angular position to a topic called joints_pos
         self.joints_pub2 = rospy.Publisher("joints_pos2", Float64MultiArray, queue_size=10)
 
-        # # initialize a publisher to send joints' angular position to a topic called joints_pos
-        # self.joints_pub2 = rospy.Publisher("joints_pos2", Float64MultiArray, queue_size=10)
+        # initialize publishers to send joints' angular position to topics
+        self.joints_pub2_ja2 = rospy.Publisher("joint_angle_2", Float64, queue_size=10)
+        self.joints_pub2_ja3 = rospy.Publisher("joint_angle_3", Float64, queue_size=10)
+        self.joints_pub2_ja4 = rospy.Publisher("joint_angle_4", Float64, queue_size=10)
 
         # initialize a publisher to send images from camera2 to a topic named image_topic2
         self.image_pub2 = rospy.Publisher("image_topic2", Image, queue_size=1)
@@ -122,10 +129,16 @@ class image_converter:
             # self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
             # self.image_pub2.publish(self.bridge.cv2_to_imgmsg(self.cv_image2, "bgr8"))
             self.joints_pub.publish(self.joints)
+            self.joints_pub_ja2.publish(np.sign(joints_est2[1])*min(np.pi/2, abs(joints_est2[1])))
+            self.joints_pub_ja3.publish(np.sign(joints_est1[1]) * min(np.pi / 2, abs(joints_est1[1])))
+            self.joints_pub_ja4.publish(np.sign(joints_est2[2])*min(np.pi/2, abs(joints_est2[2])))
         except CvBridgeError as e:
             print(e)
         try:
             self.joints_pub2.publish(self.joints_chamfer)
+            self.joints_pub2_ja2.publish(self.joints_chamfer.data[0])
+            self.joints_pub2_ja3.publish(self.joints_chamfer.data[1])
+            self.joints_pub2_ja4.publish(self.joints_chamfer.data[2])
         except CvBridgeError as e:
             print(e)
 
