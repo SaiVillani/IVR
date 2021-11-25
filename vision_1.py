@@ -21,7 +21,7 @@ class image_converter:
         # initialize a publisher to send images from camera1 to a topic named image_topic1
         self.image_pub1 = rospy.Publisher("image_topic1", Image, queue_size=1)
         # initialize a subscriber to recieve messages rom a topic named /robot/camera1/image_raw and use callback function to recieve data
-        self.image_sub1 = rospy.Subscriber("/camera1/robot/image_raw", Image, self.callback)
+        self.image_sub1 = rospy.Subscriber("/camera1/robot/image_raw", Image, self.callback1)
 
         # initialize a publisher to send joints' angular position to a topic called joints_pos
         self.joints_pub = rospy.Publisher("joints_pos", Float64MultiArray, queue_size=10)
@@ -42,7 +42,7 @@ class image_converter:
         # initialize a publisher to send images from camera2 to a topic named image_topic2
         self.image_pub2 = rospy.Publisher("image_topic2", Image, queue_size=1)
         # initialize a subscriber to recieve messages rom a topic named /robot/camera1/image_raw and use callback function to recieve data
-        self.image_sub2 = rospy.Subscriber("/camera2/robot/image_raw", Image, self.callback)
+        self.image_sub2 = rospy.Subscriber("/camera2/robot/image_raw", Image, self.callback2)
 
         # Flag to check if the circles are detected successfully
         self.red_flag = False
@@ -52,24 +52,14 @@ class image_converter:
         self.bridge = CvBridge()
 
 
-    # Recieve data from camera 1, process it, and publish
-    def callback(self, data):
-        # Recieve the image
+    # Recieve data from camera 1, process it
+    def callback1(self, data):
         try:
             self.cv_image1 = self.bridge.imgmsg_to_cv2(data, "bgr8")
-            self.cv_image2 = self.bridge.imgmsg_to_cv2(data, "bgr8")
         except CvBridgeError as e:
             print(e)
 
-        # Uncomment if you want to save the image
-        # cv2.imwrite('image_copy.png', cv_image)
-
-        # im1 = cv2.imshow('window1', self.cv_image1)
-
         # loading template for links as binary image
-        # img1 = cv2.imread('./catkin_ws/src/ivr_assignment/src/link1.png', 1)
-        # print(img1)
-        # print(os.getcwd())
         self.link1 = cv2.inRange(cv2.imread('./catkin_ws/src/ivr_assignment/src/link1.png', 1), (200, 200, 200), (255, 255, 255))
         self.link2 = cv2.inRange(cv2.imread('./catkin_ws/src/ivr_assignment/src/link2.png', 1), (200, 200, 200), (255, 255, 255))
         self.link3 = cv2.inRange(cv2.imread('./catkin_ws/src/ivr_assignment/src/link3.png', 1), (200, 200, 200), (255, 255, 255))
@@ -78,123 +68,56 @@ class image_converter:
         self.joints = Float64MultiArray()
 
         # Get joint angles from camera 1
-        joints_est1 = self.detect_joint_angles(self.cv_image1)
+        self.joints_est1 = self.detect_joint_angles(self.cv_image1)
 
-        # Get joint angles from camera 2
-        joints_est2 = self.detect_joint_angles(self.cv_image2)
-
-        # if self.red_flag == True:
-        #     joint4_val = joints_est1[2]
-        # else:
-        #     joint4_val = joints_est2[2]
+        # Chamfer
+        self.joints_est1_chamfer = self.detect_joint_angles_chamfer(self.cv_image1)
 
         # Blue not detected by camera 2
         if self.blue_flag:
-            joints_est1[1] = -np.pi/2
-
-        # Use camera 2 for estimating joint angles for 2 and 4
-        # and camera 1 for estimating joint angles for 3
-
-        # Manual adjustment if it exceeds pi/2 or -pi/2 in either directions
-        self.joints.data = np.array([np.sign(joints_est2[1])*min(np.pi/2, abs(joints_est2[1])),
-                                     np.sign(joints_est1[1])*min(np.pi/2, abs(joints_est1[1])),
-                                     np.sign(joints_est2[2])*min(np.pi/2, abs(joints_est2[2]))])
-
-        # Check why it is not publishing properly
-        # Try Chamfer
-        joints_est1_chamfer = self.detect_joint_angles_chamfer(self.cv_image1)
-        joints_est2_chamfer = self.detect_joint_angles_chamfer(self.cv_image2)
-
-        # if self.red_flag == True:
-        #     joint4_val_chamfer = joints_est1_chamfer[2]
-        # else:
-        #     joint4_val_chamfer = joints_est2_chamfer[2]
-
-
-        # publish robot joints angles
-        self.joints_chamfer = Float64MultiArray()
-        # self.joints_chamfer.data = np.array([joints_est2_chamfer[1], joints_est1_chamfer[1], joint4_val_chamfer])
+            self.joints_est1[1] = -np.pi/2
 
         # Blue not detected by camera 2
         if self.blue_flag:
-            joints_est1_chamfer[1] = -np.pi / 2
-
-        # Manual adjustment if it exceeds pi/2 or -pi/2 in either directions
-        self.joints_chamfer.data = np.array([np.sign(joints_est2_chamfer[1])*min(np.pi/2, abs(joints_est2_chamfer[1])),
-                                            np.sign(joints_est1_chamfer[1])*min(np.pi/2, abs(joints_est1_chamfer[1])),
-                                             np.sign(joints_est2_chamfer[2])*min(np.pi/2, abs(joints_est2_chamfer[2]))])
+            self.joints_est1_chamfer[1] = -np.pi / 2
 
         # Publish the results
         try:
-            # self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
-            # self.image_pub2.publish(self.bridge.cv2_to_imgmsg(self.cv_image2, "bgr8"))
-            self.joints_pub.publish(self.joints)
-            self.joints_pub_ja2.publish(np.sign(joints_est2[1])*min(np.pi/2, abs(joints_est2[1])))
-            self.joints_pub_ja3.publish(np.sign(joints_est1[1]) * min(np.pi / 2, abs(joints_est1[1])))
-            self.joints_pub_ja4.publish(np.sign(joints_est2[2])*min(np.pi/2, abs(joints_est2[2])))
+            self.joints_pub_ja3.publish(np.sign(self.joints_est1[1]) * min(np.pi / 2, abs(self.joints_est1[1])))
+            self.joints_pub2_ja3.publish(np.sign(self.joints_est1_chamfer[1]) * min(np.pi / 2, abs(self.joints_est1_chamfer[1])))
         except CvBridgeError as e:
             print(e)
+
+
+    # Recieve data from camera 2, process it
+    def callback2(self, data):
         try:
-            self.joints_pub2.publish(self.joints_chamfer)
-            self.joints_pub2_ja2.publish(self.joints_chamfer.data[0])
-            self.joints_pub2_ja3.publish(self.joints_chamfer.data[1])
-            self.joints_pub2_ja4.publish(self.joints_chamfer.data[2])
+            self.cv_image2 = self.bridge.imgmsg_to_cv2(data, "bgr8")
         except CvBridgeError as e:
             print(e)
 
+        # loading template for links as binary image
+        self.link1 = cv2.inRange(cv2.imread('./catkin_ws/src/ivr_assignment/src/link1.png', 1), (200, 200, 200), (255, 255, 255))
+        self.link2 = cv2.inRange(cv2.imread('./catkin_ws/src/ivr_assignment/src/link2.png', 1), (200, 200, 200), (255, 255, 255))
+        self.link3 = cv2.inRange(cv2.imread('./catkin_ws/src/ivr_assignment/src/link3.png', 1), (200, 200, 200), (255, 255, 255))
 
-    # # Recieve data from camera 1, process it, and publish
-    # def callback1(self, data):
-    #     # Recieve the image
-    #     try:
-    #         self.cv_image1 = self.bridge.imgmsg_to_cv2(data, "bgr8")
-    #     except CvBridgeError as e:
-    #         print(e)
-    #
-    #     # Uncomment if you want to save the image
-    #     # cv2.imwrite('image_copy.png', cv_image)
-    #
-    #     im1 = cv2.imshow('window1', self.cv_image1)
-    #     cv2.waitKey(1)
-    #
-    #     # publish robot joints angles
-    #     self.joints = Float64MultiArray()
-    #     self.joints.data = self.detect_joint_angles(self.cv_image1)
-    #
-    #     # Publish the results
-    #     try:
-    #         self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
-    #         # self.robot_joint2_pub.publish(self.joint2)
-    #         # self.robot_joint3_pub.publish(self.joint3)
-    #         # self.robot_joint4_pub.publish(self.joint4)
-    #         self.joints_pub.publish(self.joints)
-    #     except CvBridgeError as e:
-    #         print(e)
-    #
-    # def callback2(self, data):
-    #     # Recieve the image
-    #     try:
-    #         self.cv_image2 = self.bridge.imgmsg_to_cv2(data, "bgr8")
-    #     except CvBridgeError as e:
-    #         print(e)
-    #     # Uncomment if you want to save the image
-    #     # cv2.imwrite('image_copy.png', cv_image)
-    #     im2 = cv2.imshow('window2', self.cv_image2)
-    #     cv2.waitKey(1)
-    #
-    #     # publish robot joints angles
-    #     self.joints2 = Float64MultiArray()
-    #     self.joints2.data = self.detect_joint_angles(self.cv_image2)
-    #
-    #     # Publish the results
-    #     try:
-    #         # self.image_pub2.publish(self.bridge.cv2_to_imgmsg(self.cv_image2, "bgr8"))
-    #         # self.robot_joint2_pub.publish(self.joint2)
-    #         # self.robot_joint3_pub.publish(self.joint3)
-    #         # self.robot_joint4_pub.publish(self.joint4)
-    #         self.joints_pub2.publish(self.joints2)
-    #     except CvBridgeError as e:
-    #         print(e)
+        # publish robot joints angles
+        self.joints = Float64MultiArray()
+
+        # Get joint angles from camera 2
+        self.joints_est2 = self.detect_joint_angles(self.cv_image2)
+
+        # Chamfer
+        self.joints_est2_chamfer = self.detect_joint_angles_chamfer(self.cv_image2)
+
+        # Publish the results
+        try:
+            self.joints_pub_ja2.publish(np.sign(self.joints_est2[1])*min(np.pi/2, abs(self.joints_est2[1])))
+            self.joints_pub_ja4.publish(np.sign(self.joints_est2[2])*min(np.pi/2, abs(self.joints_est2[2])))
+            self.joints_pub2_ja2.publish(np.sign(self.joints_est2_chamfer[1]) * min(np.pi / 2, abs(self.joints_est2_chamfer[1])))
+            self.joints_pub2_ja4.publish(np.sign(self.joints_est2_chamfer[2]) * min(np.pi / 2, abs(self.joints_est2_chamfer[2])))
+        except CvBridgeError as e:
+            print(e)
 
     def detect_red(self, image):
         # Isolate the blue colour in the image as a binary image
