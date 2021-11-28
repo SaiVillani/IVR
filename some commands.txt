@@ -69,10 +69,26 @@ rostopic pub -1 /robot/joint4_position_controller/command std_msgs/Float64 "data
 
 ### INVESTIGATION ###
 
-- Cases where camera two fails to get the red node
+- Cases where camera two fails to get the red node (always when joint angle 3 is near -pi/2 regardless of joint angles 2 and 4)
 rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: -1.5"
 rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: -1.5"
 rostopic pub -1 /robot/joint4_position_controller/command std_msgs/Float64 "data: -1.5"
+
+rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: -1.5"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: -1.5"
+rostopic pub -1 /robot/joint4_position_controller/command std_msgs/Float64 "data: 0.0"
+
+rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: -1.0"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: -1.5"
+rostopic pub -1 /robot/joint4_position_controller/command std_msgs/Float64 "data: 0.0"
+
+rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: 0.0"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: -1.5"
+rostopic pub -1 /robot/joint4_position_controller/command std_msgs/Float64 "data: 0.0"
+
+rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: 1.5"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: -1.5"
+rostopic pub -1 /robot/joint4_position_controller/command std_msgs/Float64 "data: 0.0"
 
 rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: 1.5"
 rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: -1.5"
@@ -80,21 +96,27 @@ rostopic pub -1 /robot/joint4_position_controller/command std_msgs/Float64 "data
 
 
 - Additional cases where camera files to get blue node (camera 2) i.e. node 2
+
+-- yellow circle in the middle above the joint 1
 rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: 0.0"
 rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: -1.5"
 
+-- yellow circle is slightly on the left
 rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: -1.5"
 rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: -1.5"
 
+-- yellow circle is slightly on the right
 rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: 1.5"
 rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: -1.5"
 
 - Cases where camera fails to get blue node camera 1 i.e. joint 3
+- Blue ball kind of hidden
 rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: -1.5"
 rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: 0.0"
 
-rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: -1.5"
-rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: -0.5"
+- Red ball infront
+rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: 1.5"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: 0.0"
 
 
 FOR LABS

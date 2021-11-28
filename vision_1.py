@@ -81,6 +81,11 @@ class image_converter:
             self.joints_est1[1] = -np.pi/2
             self.joints_est1_chamfer[1] = -np.pi / 2
 
+        # Case where camera 1 fails to detect blue ball
+        if self.blue_flag1 == True:
+            self.joints_est1[1] = 0
+            self.joints_est1_chamfer[1] = 0
+
         # Publish the results
         try:
             self.joints_pub_ja3.publish(np.sign(self.joints_est1[1]) * min(np.pi / 2, abs(self.joints_est1[1])))
@@ -114,13 +119,10 @@ class image_converter:
         # print('Blue flag 1', self.blue_flag1)
         # print('Blue flag 2',self.blue_flag2)
 
-        # Case where camera 1 fails to detect blue ball
-        if self.blue_flag1 == True:
-            self.joints_est2[1] = 0
-            self.joints_est2_chamfer[1] = 0
-
-        # Cases where camera 2 fails to detect blue ball
-
+        # Cases where camera 2 fails to detect red ball, switch camera
+        if self.red_flag2 == True:
+            self.joints_est2[2] = self.joints_est1[1]
+            self.joints_est2_chamfer[2] = self.joints_est1_chamfer[1]
 
         # Publish the results
         try:
@@ -458,16 +460,22 @@ class image_converter:
             if circle1Pos[1] - circle2Pos[1] >= 0:  # it is in upper side
                 if circle1Pos[0] - circle2Pos[0] >= 0:  # it is in left side
                     ja2 = -self.detect_l2(image, np.array([90, 180]))
+                    # print(ja2)
                     # print('In left side')
                     # print(self.detect_l2(image, np.array([90, 180])))
                 else:  # it is in right side
-                    ja2 = self.detect_l2(image, np.array([0, 90])) #- ja1
+                    ja2 = -self.detect_l2(image, np.array([0, 90])) #- ja1
+                    # print(ja2)
                     # print('In right side')
             else:  # it is in lower side
                 if circle1Pos[0] - circle2Pos[0] >= 0:  # it is in left side
-                    ja2 = -self.detect_l2(image, np.array([180, 270])) #- ja1
+                    ja2 = (self.detect_l2(image, np.array([180, 270])) - np.pi)#- ja1
+                    # print(ja2)
                 else:  # it is in right side
-                    ja2 = self.detect_l2(image, np.array([270, 360])) #- ja1
+                    ja2 = np.pi/2 - (np.pi*3/2 - self.detect_l2(image, np.array([270, 360]))) #- ja1
+                    # print(ja2)
+
+            # print(ja2)
             self.blue_flag2 = False
         except:
             # Note that this joint angle might be joint angle 2 or 3 depending on camera
@@ -477,6 +485,22 @@ class image_converter:
             circle2Pos = circle1Pos
             ja2 = np.arctan2(circle1_originalPos[0] - circle1Pos[0], circle1_originalPos[1] - circle1Pos[1])
 
+            if circle1_originalPos[1] - circle2Pos[1] >= 0:  # it is in upper side
+                if circle1_originalPos[0] - circle2Pos[0] >= 0:  # it is in left side
+                    ja2 = ja2
+                    # print('upper left')
+                else:  # it is in right side
+                    ja2 = ja2
+                    # print('upper right')
+                    # print(ja2)
+            else:  # it is in lower side
+                if circle1_originalPos[0] - circle2Pos[0] >= 0:  # it is in left side
+                    ja2 = (ja2 - np.pi)  # - ja1
+                    # print('lower left')
+                else:  # it is in right side
+                    ja2 = -(np.pi/2 + ja2)  # - ja1
+                    # print('lower right')
+            # print(ja2)
             self.blue_flag2 = True
             # print('joint 2 failed')
 
@@ -485,21 +509,26 @@ class image_converter:
             circle3Pos = self.detect_red(image)
             if circle2Pos[1] - circle3Pos[1] >= 0:  # it is in upper side
                 if circle2Pos[0] - circle3Pos[0] >= 0:  # it is in left side
-                    ja3 = self.detect_l3(image, np.array([90, 180])) - ja1 - ja2
+                    ja3 = -self.detect_l3(image, np.array([90, 180])) - ja2
+                    # print(ja3)
                     # print('joint 3 upper left side')
                 else:  # it is in right side
-                    ja3 = self.detect_l3(image, np.array([0, 90])) - ja1 - ja2
+                    ja3 = -self.detect_l3(image, np.array([0, 90])) - ja2
+                    # print(ja3)
                     # print('joint 3 upper right side')
             else:  # it is in lower side
                 if circle2Pos[0] - circle3Pos[0] >= 0:  # it is in left side
-                    ja3 = self.detect_l3(image, np.array([180, 270])) - ja1 - ja2
+                    ja3 = (self.detect_l3(image, np.array([180, 270])) - np.pi) - ja2
+                    # print(ja3)
                     # print('joint 3 lower left side')
                 else:  # it is in right side
-                    ja3 = self.detect_l3(image, np.array([270, 360])) - ja1 - ja2
+                    ja3 = np.pi/2 - (np.pi*3/2 - self.detect_l3(image, np.array([270, 360]))) - ja2
+                    # print(ja3)
                     # print('joint 3 lower right side')
             self.red_flag2 = False
         except:
             ja3 = np.pi/2 - ja2 - ja1
+            # print(ja3)
             self.red_flag2 = True
 
         return np.array([ja1, ja2, ja3])
