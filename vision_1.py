@@ -11,13 +11,16 @@ from std_msgs.msg import Float64MultiArray, Float64
 from cv_bridge import CvBridge, CvBridgeError
 import os
 
-
 class image_converter:
 
     # Defines publisher and subscriber
     def __init__(self):
         # initialize the node named image_processing
         rospy.init_node('image_processing', anonymous=True)
+
+        # initialize the bridge between openCV and ROS
+        self.bridge = CvBridge()
+
         # initialize a publisher to send images from camera1 to a topic named image_topic1
         self.image_pub1 = rospy.Publisher("image_topic1", Image, queue_size=1)
         # initialize a subscriber to recieve messages rom a topic named /robot/camera1/image_raw and use callback function to recieve data
@@ -45,12 +48,10 @@ class image_converter:
         self.image_sub2 = rospy.Subscriber("/camera2/robot/image_raw", Image, self.callback2)
 
         # Flag to check if the circles are detected successfully
-        self.red_flag = False
-        self.blue_flag = False
-
-        # initialize the bridge between openCV and ROS
-        self.bridge = CvBridge()
-
+        self.red_flag1 = False
+        self.red_flag2 = False
+        self.blue_flag1 = False
+        self.blue_flag2 = False
 
     # Recieve data from camera 1, process it
     def callback1(self, data):
@@ -68,17 +69,16 @@ class image_converter:
         self.joints = Float64MultiArray()
 
         # Get joint angles from camera 1
-        self.joints_est1 = self.detect_joint_angles(self.cv_image1)
+        # print('camera1')
+        self.joints_est1 = self.detect_joint_angles1(self.cv_image1)
 
         # Chamfer
-        self.joints_est1_chamfer = self.detect_joint_angles_chamfer(self.cv_image1)
+        self.joints_est1_chamfer = self.detect_joint_angles_chamfer1(self.cv_image1)
 
         # Blue not detected by camera 2
-        if self.blue_flag:
+        # or Red not detected by camera 2
+        if (self.blue_flag2 == True) | (self.red_flag2 == True):
             self.joints_est1[1] = -np.pi/2
-
-        # Blue not detected by camera 2
-        if self.blue_flag:
             self.joints_est1_chamfer[1] = -np.pi / 2
 
         # Publish the results
@@ -87,7 +87,6 @@ class image_converter:
             self.joints_pub2_ja3.publish(np.sign(self.joints_est1_chamfer[1]) * min(np.pi / 2, abs(self.joints_est1_chamfer[1])))
         except CvBridgeError as e:
             print(e)
-
 
     # Recieve data from camera 2, process it
     def callback2(self, data):
@@ -105,10 +104,23 @@ class image_converter:
         self.joints = Float64MultiArray()
 
         # Get joint angles from camera 2
-        self.joints_est2 = self.detect_joint_angles(self.cv_image2)
+        self.joints_est2 = self.detect_joint_angles2(self.cv_image2)
 
         # Chamfer
-        self.joints_est2_chamfer = self.detect_joint_angles_chamfer(self.cv_image2)
+        self.joints_est2_chamfer = self.detect_joint_angles_chamfer2(self.cv_image2)
+        #
+        # print('Cam1', self.joints_est1_chamfer)
+        # print('Cam2', self.joints_est2_chamfer)
+        # print('Blue flag 1', self.blue_flag1)
+        # print('Blue flag 2',self.blue_flag2)
+
+        # Case where camera 1 fails to detect blue ball
+        if self.blue_flag1 == True:
+            self.joints_est2[1] = 0
+            self.joints_est2_chamfer[1] = 0
+
+        # Cases where camera 2 fails to detect blue ball
+
 
         # Publish the results
         try:
@@ -118,6 +130,7 @@ class image_converter:
             self.joints_pub2_ja4.publish(np.sign(self.joints_est2_chamfer[2]) * min(np.pi / 2, abs(self.joints_est2_chamfer[2])))
         except CvBridgeError as e:
             print(e)
+
 
     def detect_red(self, image):
         # Isolate the blue colour in the image as a binary image
@@ -178,11 +191,13 @@ class image_converter:
 
         # Calculate the relevant joint angles from the image
 
-    def detect_joint_angles(self, image):
+    def detect_joint_angles1(self, image):
         a = self.pixel2meter(image)
         # Obtain the centre of each coloured blob
         center = a * self.detect_green(image)
         circle1Pos = a * self.detect_yellow(image)
+        # print('This is center', center)
+        # print('This is yellow',circle1Pos)
 
         # Solve using trigonometry
         ja1 = np.arctan2(center[0] - circle1Pos[0], center[1] - circle1Pos[1])
@@ -190,20 +205,54 @@ class image_converter:
         try:
             circle2Pos = a * self.detect_blue(image)
             ja2 = np.arctan2(circle1Pos[0] - circle2Pos[0], circle1Pos[1] - circle2Pos[1]) - ja1
-            self.blue_flag = False
+            self.blue_flag1 = False
         except:
             # -90 degrees so it is completely hidden behind yellow
             ja2 = -np.pi/2
             circle2Pos = circle1Pos
-            self.blue_flag = True
+            self.blue_flag1 = True
 
         try:
             circle3Pos = a * self.detect_red(image)
             ja3 = np.arctan2(circle2Pos[0] - circle3Pos[0], circle2Pos[1] - circle3Pos[1]) - ja2 - ja1
-            self.red_flag = False
+            self.red_flag1 = False
         except:
             ja3 = np.pi/2 - ja2 - ja1
-            self.red_flag = True
+            self.red_flag1 = True
+
+        return np.array([ja1, ja2, ja3])
+
+    def detect_joint_angles2(self, image):
+        a = self.pixel2meter(image)
+        # Obtain the centre of each coloured blob
+        center = a * self.detect_green(image)
+        circle1Pos = a * self.detect_yellow(image)
+        # print('This is center', center)
+        # print('This is yellow',circle1Pos)
+
+        # Solve using trigonometry
+        ja1 = np.arctan2(center[0] - circle1Pos[0], center[1] - circle1Pos[1])
+
+        try:
+            circle2Pos = a * self.detect_blue(image)
+            ja2 = np.arctan2(circle1Pos[0] - circle2Pos[0], circle1Pos[1] - circle2Pos[1]) - ja1
+            self.blue_flag2 = False
+        except:
+            # -90 degrees for joint angle 3 so it is completely hidden behind yellow
+            # For joint angle 2, use the current position of yellow ball and compare with
+            # that when it is at 0 angle
+
+            ja2 = -np.pi/2
+            circle2Pos = circle1Pos
+            self.blue_flag2 = True
+
+        try:
+            circle3Pos = a * self.detect_red(image)
+            ja3 = np.arctan2(circle2Pos[0] - circle3Pos[0], circle2Pos[1] - circle3Pos[1]) - ja2 - ja1
+            self.red_flag2 = False
+        except:
+            ja3 = np.pi/2 - ja2 - ja1
+            self.red_flag2 = True
 
         return np.array([ja1, ja2, ja3])
 
@@ -326,11 +375,75 @@ class image_converter:
         return (angle_iteration[np.argmin(sumlist)] * np.pi) / 180.0
 
     # Calculate the relevant joint angles from the image
-    def detect_joint_angles_chamfer(self, image):
+    def detect_joint_angles_chamfer1(self, image):
         # Obtain the center of each coloured blob
         center = self.detect_green(image)
         circle1Pos = self.detect_yellow(image)
 
+
+        # Determine which quadrant each link is pointing in and detect the angle
+        # link 1
+        if center[0] - circle1Pos[0] >= 0:
+            ja1 = -self.detect_l1(image, np.array([90, 180]))  # it is in left side
+        else:
+            ja1 = self.detect_l1(image, np.array([0, 90]))  # it is in right side
+
+        # link 2
+        try:
+            circle2Pos = self.detect_blue(image)
+            if circle1Pos[1] - circle2Pos[1] >= 0:  # it is in upper side
+                if circle1Pos[0] - circle2Pos[0] >= 0:  # it is in left side
+                    ja2 = self.detect_l2(image, np.array([90, 180]))
+                    # print('In left side')
+                    # print(self.detect_l2(image, np.array([90, 180])))
+                else:  # it is in right side
+                    ja2 = -self.detect_l2(image, np.array([0, 90])) #- ja1
+                    # print('In right side')
+            else:  # it is in lower side
+                if circle1Pos[0] - circle2Pos[0] >= 0:  # it is in left side
+                    ja2 = self.detect_l2(image, np.array([180, 270])) #- ja1
+                else:  # it is in right side
+                    ja2 = -self.detect_l2(image, np.array([270, 360])) #- ja1
+            self.blue_flag1 = False
+        except:
+            # Note that this joint angle might be joint angle 2 or 3 depending on camera
+            # Joint angle 3 must be -90 degrees so it is completely hidden behind yellow
+            ja2 = -np.pi / 2
+            circle2Pos = circle1Pos
+            self.blue_flag1 = True
+            # print('joint 2 failed')
+
+        # link 3
+        try:
+            circle3Pos = self.detect_red(image)
+            if circle2Pos[1] - circle3Pos[1] >= 0:  # it is in upper side
+                if circle2Pos[0] - circle3Pos[0] >= 0:  # it is in left side
+                    ja3 = self.detect_l3(image, np.array([90, 180])) - ja1 - ja2
+                    # print('joint 3 upper left side')
+                else:  # it is in right side
+                    ja3 = self.detect_l3(image, np.array([0, 90])) - ja1 - ja2
+                    # print('joint 3 upper right side')
+            else:  # it is in lower side
+                if circle2Pos[0] - circle3Pos[0] >= 0:  # it is in left side
+                    ja3 = self.detect_l3(image, np.array([180, 270])) - ja1 - ja2
+                    # print('joint 3 lower left side')
+                else:  # it is in right side
+                    ja3 = self.detect_l3(image, np.array([270, 360])) - ja1 - ja2
+                    # print('joint 3 lower right side')
+            self.red_flag1 = False
+        except:
+            ja3 = np.pi/2 - ja2 - ja1
+            self.red_flag1 = True
+
+        return np.array([ja1, ja2, ja3])
+
+    # Calculate the relevant joint angles from the image
+    def detect_joint_angles_chamfer2(self, image):
+        # Obtain the center of each coloured blob
+        center = self.detect_green(image)
+        circle1Pos = self.detect_yellow(image)
+        # print(center)
+        # print(circle1Pos)
 
         # Determine which quadrant each link is pointing in and detect the angle
         # link 1
@@ -344,18 +457,28 @@ class image_converter:
             circle2Pos = self.detect_blue(image)
             if circle1Pos[1] - circle2Pos[1] >= 0:  # it is in upper side
                 if circle1Pos[0] - circle2Pos[0] >= 0:  # it is in left side
-                    ja2 = self.detect_l2(image, np.array([90, 180])) - ja1
+                    ja2 = -self.detect_l2(image, np.array([90, 180]))
+                    # print('In left side')
+                    # print(self.detect_l2(image, np.array([90, 180])))
                 else:  # it is in right side
-                    ja2 = self.detect_l2(image, np.array([0, 90])) - ja1
+                    ja2 = self.detect_l2(image, np.array([0, 90])) #- ja1
+                    # print('In right side')
             else:  # it is in lower side
                 if circle1Pos[0] - circle2Pos[0] >= 0:  # it is in left side
-                    ja2 = self.detect_l2(image, np.array([180, 270])) - ja1
+                    ja2 = -self.detect_l2(image, np.array([180, 270])) #- ja1
                 else:  # it is in right side
-                    ja2 = self.detect_l2(image, np.array([270, 360])) - ja1
+                    ja2 = self.detect_l2(image, np.array([270, 360])) #- ja1
+            self.blue_flag2 = False
         except:
-            # -90 degrees so it is completely hidden behind yellow
-            ja2 = -np.pi / 2
+            # Note that this joint angle might be joint angle 2 or 3 depending on camera
+            # Joint angle 3 must be -90 degrees so it is completely hidden behind yellow
+            # For camera angle 2
+            circle1_originalPos = np.array([278, 431])
             circle2Pos = circle1Pos
+            ja2 = np.arctan2(circle1_originalPos[0] - circle1Pos[0], circle1_originalPos[1] - circle1Pos[1])
+
+            self.blue_flag2 = True
+            # print('joint 2 failed')
 
         # link 3
         try:
@@ -363,21 +486,23 @@ class image_converter:
             if circle2Pos[1] - circle3Pos[1] >= 0:  # it is in upper side
                 if circle2Pos[0] - circle3Pos[0] >= 0:  # it is in left side
                     ja3 = self.detect_l3(image, np.array([90, 180])) - ja1 - ja2
+                    # print('joint 3 upper left side')
                 else:  # it is in right side
                     ja3 = self.detect_l3(image, np.array([0, 90])) - ja1 - ja2
+                    # print('joint 3 upper right side')
             else:  # it is in lower side
                 if circle2Pos[0] - circle3Pos[0] >= 0:  # it is in left side
                     ja3 = self.detect_l3(image, np.array([180, 270])) - ja1 - ja2
+                    # print('joint 3 lower left side')
                 else:  # it is in right side
                     ja3 = self.detect_l3(image, np.array([270, 360])) - ja1 - ja2
-            self.red_flag = False
+                    # print('joint 3 lower right side')
+            self.red_flag2 = False
         except:
             ja3 = np.pi/2 - ja2 - ja1
-            self.red_flag = True
+            self.red_flag2 = True
 
         return np.array([ja1, ja2, ja3])
-
-
 # call the class
 def main(args):
     ic = image_converter()
