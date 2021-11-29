@@ -119,6 +119,17 @@ rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data
 rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: 0.0"
 
 
+-- When the joint angle 3 is close to pi/2, the joint angle 2 is not very discernible (negative and positive values all around right quadrants)
+
+e.g.
+rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: -0.2"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: 1.3"
+
+and
+rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: 0.5"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: 1.3"
+
+======================================================================================================
 FOR LABS
 
 roslaunch ivr_lab spawn.launch
