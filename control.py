@@ -11,7 +11,8 @@ from std_msgs.msg import Float64MultiArray, Float64
 from cv_bridge import CvBridge, CvBridgeError
 import os
 
-class image_converter:
+
+class ImageConverter:
 
   # Defines publisher and subscriber
   def __init__(self):
@@ -49,14 +50,32 @@ class image_converter:
     self.time_previous_step2 = np.array([rospy.get_time()], dtype='float64')
 
     # initialize error and derivative of error for trajectory tracking
-    self.error = np.array([0.0,0.0], dtype='float64')
-    self.error_d = np.array([0.0,0.0], dtype='float64')
+    self.error = np.array([0.0, 0.0], dtype='float64')
+    self.error_d = np.array([0.0, 0.0], dtype='float64')
 
     # Flag to check if the circles are detected successfully
     self.red_flag1 = False
     self.red_flag2 = False
     self.blue_flag1 = False
     self.blue_flag2 = False
+
+    # initialize a publisher to send messages to a topic named image_topic
+    self.image_pub = rospy.Publisher("image_topic", Image, queue_size=1)
+    # initialize a publisher to send joints' angular position to a topic called joints_pos
+    self.joints_pub = rospy.Publisher("joints_pos", Float64MultiArray, queue_size=10)
+    # initialize a publisher to send robot end-effector position
+    self.end_effector_pub = rospy.Publisher("end_effector_prediction", Float64MultiArray, queue_size=10)
+    # initialize a publisher to send desired trajectory
+    self.trajectory_pub = rospy.Publisher("trajectory", Float64MultiArray, queue_size=10)
+    # initialize a publisher to send joints' angular position to the robot
+    self.robot_joint1_pub = rospy.Publisher("/robot/joint1_position_controller/command", Float64, queue_size=10)
+    self.robot_joint2_pub = rospy.Publisher("/robot/joint2_position_controller/command", Float64, queue_size=10)
+    self.robot_joint3_pub = rospy.Publisher("/robot/joint3_position_controller/command", Float64, queue_size=10)
+
+    # initialize a subscriber to recieve messages rom a topic named /robot/camera1/image_raw and use callback function to recieve data
+    self.image_sub = rospy.Subscriber("/robot/camera1/image_raw", Image, self.callback)
+
+
 
 
   def detect_red(self,image):
@@ -132,6 +151,7 @@ class image_converter:
   def forward_kinematics(self,image):
     joints = self.detect_joint_angles(image)
     end_effector = np.array([3 * np.sin(joints[0]) + 3 * np.sin(joints[0]+joints[1]) + 3 *np.sin(joints.sum()),
+                             3 * np.cos(joints[0]) + 3 * np.cos(joints[0]+joints[1]) + 3 * np.cos(joints.sum()),
                              3 * np.cos(joints[0]) + 3 * np.cos(joints[0]+joints[1]) + 3 * np.cos(joints.sum())])
     return end_effector
 
@@ -213,19 +233,9 @@ class image_converter:
 
 
 
-
-
-
-
-
-
-
-
-
-
 # call the class
 def main(args):
-  ic = image_converter()
+  ic = ImageConverter()
   try:
     rospy.spin()
   except KeyboardInterrupt:
