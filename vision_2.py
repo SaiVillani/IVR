@@ -222,29 +222,91 @@ class image_converter:
             if len(self.last_ten) > 0:
                 total_weights = 0
                 w_arr = np.zeros(3)
-                diff_trend = np.zeros(3)
+                pos_diff_trend_ja1 = 0
+                pos_diff_trend_ja3 = 0
+                pos_diff_trend_ja4 = 0
+                positive_trend_counter = np.zeros(3)
+
+                neg_diff_trend_ja1 = 0
+                neg_diff_trend_ja3 = 0
+                neg_diff_trend_ja4 = 0
+                negative_trend_counter = np.zeros(3)
+
                 rev_lst = self.last_ten[::-1]
                 for i, arr in enumerate(rev_lst):
-                    w_arr += (weight**i) * arr
-                    total_weights += weight**i
+                    w_arr += (weight ** i) * arr
+                    total_weights += weight ** i
                     if len(rev_lst) >= 2:
                         if i + 1 < len(rev_lst):
-                            diff_trend += arr - rev_lst[i+1]
+                            if arr[0] - rev_lst[i + 1][0] >= 0:
+                                pos_diff_trend_ja1 += arr[0] - rev_lst[i + 1][0]
+                                positive_trend_counter[0] += 1
+                            else:
+                                neg_diff_trend_ja1 += arr[0] - rev_lst[i + 1][0]
+                                negative_trend_counter[0] += 1
+
+                            if arr[1] - rev_lst[i + 1][1] >= 0:
+                                pos_diff_trend_ja3 += arr[1] - rev_lst[i + 1][1]
+                                positive_trend_counter[1] += 1
+                            else:
+                                neg_diff_trend_ja3 += arr[1] - rev_lst[i + 1][1]
+                                negative_trend_counter[1] += 1
+
+                            if arr[2] - rev_lst[i + 1][2] >= 0:
+                                pos_diff_trend_ja1 += arr[2] - rev_lst[i + 1][2]
+                                positive_trend_counter[2] += 1
+                            else:
+                                neg_diff_trend_ja1 += arr[2] - rev_lst[i + 1][2]
+                                negative_trend_counter[2] += 1
 
                 # Normalise the weighted array
                 w_arr = w_arr/total_weights
 
-                if (diff_trend[0] != 0) | (diff_trend[1] != 0):
-                    diff_trend = diff_trend/(len(rev_lst) - 1)
-                ja1_forecast = rev_lst[0][0] + diff_trend[0]
-                ja3_forecast = rev_lst[0][1] + diff_trend[1]
+                # Define a cap
+                cap = 0.1
+                if positive_trend_counter[0] > negative_trend_counter[0]:
+                    ja1_forecast = rev_lst[0][0] + min(pos_diff_trend_ja1 / positive_trend_counter[0], cap)
+                elif positive_trend_counter[0] < negative_trend_counter[0]:
+                    ja1_forecast = rev_lst[0][0] + max(-cap, neg_diff_trend_ja1 / negative_trend_counter[0])
+                else:
+                    ja1_forecast = rev_lst[0][0]
+
+                if positive_trend_counter[1] > negative_trend_counter[1]:
+                    ja3_forecast = rev_lst[0][1] + min(pos_diff_trend_ja3 / positive_trend_counter[1], cap)
+                elif positive_trend_counter[1] < negative_trend_counter[1]:
+                    ja3_forecast = rev_lst[0][1] + max(-cap, neg_diff_trend_ja3 / negative_trend_counter[1])
+                else:
+                    ja3_forecast = rev_lst[0][1]
+
+                ja1_forecast = max(min((ja1_forecast), np.pi), -np.pi)
+                ja3_forecast = max(min((ja3_forecast), np.pi), -np.pi)
+
+                ja1_thres = 0.25
+                ja3_thres = 0.25
 
                 ja1_forecast = max(min((ja1_forecast) , np.pi), -np.pi)
                 ja3_forecast = max(min((ja3_forecast) , np.pi), -np.pi)
 
-                ja1_thres =0.35
-                ja3_thres = 0.35
+                ja1_thres =0.25
+                ja3_thres = 0.25
                 if np.abs(w_arr[0] - ja1) <= ja1_thres:
+
+                    limit_thres = 0.001
+                    # Check if the trend is changing before reaching peak or trough
+                    if (ja1 - rev_lst[0][0] >= 0) & (ja1_forecast - rev_lst[0][0] < 0):
+                        # IF near trough and we assume ja1 to be more accurate
+                        if rev_lst[0][0] <= -np.pi + limit_thres:
+                            ja1 = min(ja1, rev_lst[0][0] + 0.05)
+                        # Otherwise we consider ja1_forecast to be more accurate
+                        else:
+                            ja1 = max(ja1_forecast, rev_lst[0][0] - 0.05)
+
+                    elif (ja1 - rev_lst[0][0] <= 0) & (ja1_forecast - rev_lst[0][0] > 0):
+                        # If near peak and we assume ja1 to be more accurate
+                        if rev_lst[0][0] >= np.pi - limit_thres:
+                            ja1 = max(ja1, rev_lst[0][0] - 0.05)
+                        else:
+                            ja1 = min(ja1_forecast, rev_lst[0][0] + 0.05)
                     # Adjust the ja3 accordingly
                     ja3 = -np.sign(ja1) * np.abs(ja3)
                 else:
@@ -253,19 +315,44 @@ class image_converter:
                     ja1_adj2 = max(- np.pi + ja1, -np.pi)
 
                     if np.abs(w_arr[0] - ja1_adj1) <= np.abs(w_arr[0] - ja1_adj2):
-                        ja1 = ja1_adj1
+                        if np.sign(ja1_adj1 - rev_lst[0][0]) == np.sign(ja1_forecast - rev_lst[0][0]):
+                            if (np.sign(ja1 - rev_lst[0][0]) == np.sign(ja1_forecast - rev_lst[0][0])) & (
+                                    np.abs(ja1 - rev_lst[0][0]) <= np.abs(ja1_adj1 - rev_lst[0][0])):
+                                ja1 = rev_lst[0][0] + 0.05 if np.sign(ja1 - rev_lst[0][0]) > 0 else rev_lst[0][0] - 0.05
+                            else:
+                                ja1 = ja1_adj1
+                            # print(ja1)
+                        elif np.abs(ja1_adj1) <= ja1_thres:
+                            ja1 = -ja1_adj1
+                            # print(ja1)
+                        else:
+                            ja1 = (ja1_adj1 + ja1_forecast) / 2
+                            # print('Avg', ja1)
                     else:
-                        ja1 = ja1_adj2
-                    # Prevent sudden spikes
-                    if np.abs(w_arr[0] - ja1) >= ja1_thres:
-                        # ja1 = ja1_forecast
-                        ja1= max(min((ja1 + ja1_forecast)/2, np.pi),-np.pi)
-                        # print(ja1)
-                        # print(ja1_forecast)
+                        if np.sign(ja1_adj2 - rev_lst[0][0]) == np.sign(ja1_forecast - rev_lst[0][0]):
+                            if (np.sign(ja1 - rev_lst[0][0]) == np.sign(ja1_forecast - rev_lst[0][0])) & (
+                                    np.abs(ja1 - rev_lst[0][0]) <= np.abs(ja1_adj2 - rev_lst[0][0])):
+                                ja1 = rev_lst[0][0] + 0.05 if np.sign(ja1 - rev_lst[0][0]) > 0 else rev_lst[0][0] - 0.05
+                            else:
+                                ja1 = min(ja1_adj2, rev_lst[0][0] + 0.05) if ja1_adj2 > 0 else max(ja1_forecast,
+                                                                                                   rev_lst[0][0] - 0.05)
+
+                                # print(ja1)
+                        elif np.abs(ja1_adj2) <= ja1_thres:
+                            ja1 = -ja1_adj2
+                            # print(ja1)
+                        else:
+                            ja1 = (ja1_adj2 + ja1_forecast) / 2
+                    # # Prevent sudden spikes
+                    # if np.abs(w_arr[0] - ja1) >= ja1_thres:
+                    #     # ja1 = ja1_forecast
+                    #     ja1= max(min((ja1 + ja1_forecast)/2, np.pi),-np.pi)
+                    #     # print(ja1)
+                    #     # print(ja1_forecast)
                 # Prevent sudden spikes
                 if np.abs(w_arr[1] - ja3) >= ja3_thres:
                     # ja3 = ja3_forecast
-                    ja3 = max(min((ja3 + ja3_forecast)/2, np.pi),-np.pi)
+                    ja3 = max(min((ja3 + ja3_forecast)/2, np.pi/2),-np.pi/2)
 
             else:
                 ja3 = -np.sign(ja1) * np.abs(ja3) # Adjust ja3
@@ -274,28 +361,81 @@ class image_converter:
             if len(self.last_ten) > 0:
                 total_weights = 0
                 w_arr = np.zeros(3)
-                diff_trend = np.zeros(3)
+                pos_diff_trend_ja1 = 0
+                pos_diff_trend_ja3 = 0
+                pos_diff_trend_ja4 = 0
+                positive_trend_counter = np.zeros(3)
+
+                neg_diff_trend_ja1 = 0
+                neg_diff_trend_ja3 = 0
+                neg_diff_trend_ja4 = 0
+                negative_trend_counter = np.zeros(3)
+
                 rev_lst = self.last_ten[::-1]
                 for i, arr in enumerate(rev_lst):
-                    w_arr += (weight**i) * arr
-                    total_weights += weight**i
+                    w_arr += (weight ** i) * arr
+                    total_weights += weight ** i
                     if len(rev_lst) >= 2:
                         if i + 1 < len(rev_lst):
-                            diff_trend += arr - rev_lst[i+1]
+                            if arr[0] - rev_lst[i + 1][0] >= 0:
+                                pos_diff_trend_ja1 += arr[0] - rev_lst[i + 1][0]
+                                positive_trend_counter[0] += 1
+                            else:
+                                neg_diff_trend_ja1 += arr[0] - rev_lst[i + 1][0]
+                                negative_trend_counter[0] += 1
+
+                            if arr[1] - rev_lst[i + 1][1] >= 0:
+                                pos_diff_trend_ja3 += arr[1] - rev_lst[i + 1][1]
+                                positive_trend_counter[1] += 1
+                            else:
+                                neg_diff_trend_ja3 += arr[1] - rev_lst[i + 1][1]
+                                negative_trend_counter[1] += 1
+
+                            if arr[2] - rev_lst[i + 1][2] >= 0:
+                                pos_diff_trend_ja1 += arr[2] - rev_lst[i + 1][2]
+                                positive_trend_counter[2] += 1
+                            else:
+                                neg_diff_trend_ja1 += arr[2] - rev_lst[i + 1][2]
+                                negative_trend_counter[2] += 1
+
                 # Normalise the weighted array
                 w_arr = w_arr/total_weights
 
-                if (diff_trend[0] != 0) | (diff_trend[1] != 0):
-                    diff_trend = diff_trend/(len(rev_lst) - 1)
-                ja1_forecast = rev_lst[0][0] + diff_trend[0]
-                ja3_forecast = rev_lst[0][1] + diff_trend[1]
+                # Define a cap
+                cap = 0.1
+                if positive_trend_counter[0] > negative_trend_counter[0]:
+                    ja1_forecast = rev_lst[0][0] + min(pos_diff_trend_ja1 / positive_trend_counter[0], cap)
+                elif positive_trend_counter[0] < negative_trend_counter[0]:
+                    ja1_forecast = rev_lst[0][0] + max(-cap, neg_diff_trend_ja1 / negative_trend_counter[0])
+                else:
+                    ja1_forecast = rev_lst[0][0]
 
-                ja1_forecast = max(min((ja1_forecast) , np.pi), -np.pi)
-                ja3_forecast = max(min((ja3_forecast) , np.pi), -np.pi)
+                if positive_trend_counter[1] > negative_trend_counter[1]:
+                    ja3_forecast = rev_lst[0][1] + min(pos_diff_trend_ja3 / positive_trend_counter[1], cap)
+                elif positive_trend_counter[1] < negative_trend_counter[1]:
+                    ja3_forecast = rev_lst[0][1] + max(-cap, neg_diff_trend_ja3 / negative_trend_counter[1])
+                else:
+                    ja3_forecast = rev_lst[0][1]
 
-                ja1_thres =0.35
-                ja3_thres = 0.35
+                ja1_thres = 0.25
+                ja3_thres = 0.25
                 if np.abs(w_arr[0] - ja1) <= ja1_thres:
+                    limit_thres = 0.001
+                    # Check if the trend is changing before reaching peak or trough
+                    if (ja1 - rev_lst[0][0] >= 0) & (ja1_forecast - rev_lst[0][0] < 0):
+                        # IF near trough and we assume ja1 to be more accurate
+                        if rev_lst[0][0] <= -np.pi + limit_thres:
+                            ja1 = min(ja1, rev_lst[0][0] + 0.05)
+                        # Otherwise we consider ja1_forecast to be more accurate
+                        else:
+                            ja1 = max(ja1_forecast, rev_lst[0][0] - 0.05)
+
+                    elif (ja1 - rev_lst[0][0] <= 0) & (ja1_forecast - rev_lst[0][0] > 0):
+                        # If near peak and we assume ja1 to be more accurate
+                        if rev_lst[0][0] >= np.pi - limit_thres:
+                            ja1 = max(ja1, rev_lst[0][0] - 0.05)
+                        else:
+                            ja1 = min(ja1_forecast, rev_lst[0][0] + 0.05)
                     # Adjust the ja3 accordingly
                     ja3 = np.sign(ja1) * np.abs(ja3)
                 else:
@@ -304,19 +444,44 @@ class image_converter:
                     ja1_adj2 = - np.pi + np.abs(ja1)
 
                     if np.abs(w_arr[0] - ja1_adj1) <= np.abs(w_arr[0] - ja1_adj2):
-                        ja1 = ja1_adj1
+                        if np.sign(ja1_adj1 - rev_lst[0][0]) == np.sign(ja1_forecast - rev_lst[0][0]):
+                            if (np.sign(ja1 - rev_lst[0][0]) == np.sign(ja1_forecast - rev_lst[0][0])) & (
+                                    np.abs(ja1 - rev_lst[0][0]) <= np.abs(ja1_adj1 - rev_lst[0][0])):
+                                ja1 = rev_lst[0][0] + 0.05 if np.sign(ja1 - rev_lst[0][0]) > 0 else rev_lst[0][0] - 0.05
+                            else:
+                                ja1 = ja1_adj1
+                            # print(ja1)
+                        elif np.abs(ja1_adj1) <= ja1_thres:
+                            ja1 = -ja1_adj1
+                            # print(ja1)
+                        else:
+                            ja1 = (ja1_adj1 + ja1_forecast) / 2
+                            # print('Avg', ja1)
                     else:
-                        ja1 = ja1_adj2
-                    # Prevent sudden spikes
-                    if np.abs(w_arr[0] - ja1) >= ja1_thres:
-                        ja1= max(min((ja1 + ja1_forecast)/2, np.pi),-np.pi)
-                        # ja1 = ja1_forecast
-                        print(ja1)
+                        if np.sign(ja1_adj2 - rev_lst[0][0]) == np.sign(ja1_forecast - rev_lst[0][0]):
+                            if (np.sign(ja1 - rev_lst[0][0]) == np.sign(ja1_forecast - rev_lst[0][0])) & (
+                                    np.abs(ja1 - rev_lst[0][0]) <= np.abs(ja1_adj2 - rev_lst[0][0])):
+                                ja1 = rev_lst[0][0] + 0.05 if np.sign(ja1 - rev_lst[0][0]) > 0 else rev_lst[0][0] - 0.05
+                            else:
+                                ja1 = min(ja1_adj2, rev_lst[0][0] + 0.05) if ja1_adj2 > 0 else max(ja1_forecast,
+                                                                                                   rev_lst[0][0] - 0.05)
+
+                                # print(ja1)
+                        elif np.abs(ja1_adj2) <= ja1_thres:
+                            ja1 = -ja1_adj2
+                            # print(ja1)
+                        else:
+                            ja1 = (ja1_adj2 + ja1_forecast) / 2
+                    # # Prevent sudden spikes
+                    # if np.abs(w_arr[0] - ja1) >= ja1_thres:
+                    #     ja1= max(min((ja1 + ja1_forecast)/2, np.pi),-np.pi)
+                    #     # ja1 = ja1_forecast
+                    #     print(ja1)
                         # print(ja1_forecast)
                 # Prevent sudden spikes
                 if np.abs(w_arr[1] - ja3) >= ja3_thres:
-                    # ja3 = max(min((ja3 + ja3_forecast)/2, np.pi),-np.pi)
-                    ja3 = ja3_forecast
+                    ja3 = max(min((ja3 + ja3_forecast)/2, np.pi/2),-np.pi/2)
+                    # ja3 = ja3_forecast
 
             else:
                 ja3 = np.sign(ja1) * np.abs(ja3) # Adjust ja3
