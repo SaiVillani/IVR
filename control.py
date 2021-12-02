@@ -209,51 +209,52 @@ class ImageConverter:
             self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
       except CvBridgeError as e:
               print(e)
+
   def callback2(self,data):
       try:
           self.cv_image2 = self.bridge.imgmsg_to_cv2(data, "bgr8")
       except CvBridgeError as e:
           print(e)
 
-      a = self.detect_joint_angles(self.cv_image1, self.cv_image2)
+      joint_angles = self.detect_joint_angles(self.cv_image1, self.cv_image2)
 
-      if ((self.b0 > 1 and a[0] < -1) or (self.b0 < -1 and a[0] > 1)):
-          a[0] = -a[0]
-      self.b0 = a[0]
+      if ((self.b0 > 1 and joint_angles[0] < -1) or (self.b0 < -1 and joint_angles[0] > 1)):
+          joint_angles[0] = -joint_angles[0]
+      self.b0 = joint_angles[0]
 
-      if ((self.b1 > 0.5 and a[1] < -0.5) or (self.b1 < -0.5 and a[1] > 0.5)):
-             a[1] = -a[1]
-      self.b1 = a[1]
-      if ((self.b2 > 0.5 and a[2] < -0.5) or (self.b2 < -0.5 and a[2] > 0.5)):
-          a[2] = -a[2]
-      self.b2 = a[2]
+      if ((self.b1 > 0.5 and joint_angles[1] < -0.5) or (self.b1 < -0.5 and joint_angles[1] > 0.5)):
+             joint_angles[1] = -joint_angles[1]
+      self.b1 = joint_angles[1]
+      if ((self.b2 > 0.5 and joint_angles[2] < -0.5) or (self.b2 < -0.5 and joint_angles[2] > 0.5)):
+          joint_angles[2] = -joint_angles[2]
+      self.b2 = joint_angles[2]
 
       self.joint_angle_1 = Float64()
-      self.joint_angle_1.data = a[0]
+      self.joint_angle_1.data = joint_angles[0]
       self.joint_angle_3 = Float64()
-      self.joint_angle_3.data = a[1]
+      self.joint_angle_3.data = joint_angles[1]
       self.joint_angle_4 = Float64()
-      self.joint_angle_4.data = a[2]
+      self.joint_angle_4.data = joint_angles[2]
 
       # send control commands to joints
-      q_d = self.control_open(self.cv_image1, self.cv_image2)
+      controlFW = self.control_open(self.cv_image1, self.cv_image2)
       self.joint1 = Float64()
-      self.joint1.data = q_d[0]
+      self.joint1.data = controlFW[0]
       self.joint3 = Float64()
-      self.joint3.data = q_d[1]
+      self.joint3.data = controlFW[1]
       self.joint4 = Float64()
-      self.joint4.data = q_d[2]
+      self.joint4.data = controlFW[2]
 
       # compare the estimated position of robot end-effector calculated from images with forward kinematics
-      x_e = self.forward_kinematics(self.cv_image1, self.cv_image2)
-      x_e_image = np.array([self.red_x, self.red_y, self.red_z])
+      fw_difference = self.forward_kinematics(self.cv_image1, self.cv_image2)
+      fw_difference_image = np.array([self.ja1, self.ja2, self.ja3])
       self.end_effector = Float64MultiArray()
-      self.end_effector.data = x_e_image
+      self.end_effector.data = fw_difference_image
 
       # Publishing the desired trajectory on a topic named trajectory
-      x_d = self.trajectory()  # getting the desired trajectory
-      self.trajectory_desired = Float64MultiArray()
-      self.trajectory_desired.data = x_d
+      optimal_trajectory = self.trajectory()  # getting the desired trajectory
+      self.trajectory_optimal = Float64MultiArray()
+      self.trajectory_optimal.data = optimal_trajectory
 
       # Publish the results
       try:
@@ -265,7 +266,7 @@ class ImageConverter:
           self.joint3_pub.publish(self.joint_angle_3)
           self.joint4_pub.publish(self.joint_angle_4)
           self.end_effector_pub.publish(self.end_effector)
-          self.trajectory_pub.publish(self.trajectory_desired)
+          self.trajectory_pub.publish(self.trajectory_optimal)
       except CvBridgeError as e:
           print(e)
 
