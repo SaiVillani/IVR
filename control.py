@@ -321,7 +321,7 @@ class ImageConverter:
       self.joint4.data = controlFW[2]
 
       # compare the estimated position of robot end-effector calculated from images with forward kinematics
-      fw_difference = self.forward_kinematics(self.cv_image1, self.cv_image2)
+      fw_difference = self.forward_kinematics()
       #fw_difference_image = self.get_end_effector_pos(self.cv_image1,self.cv_image2)
       self.end_effector = Float64MultiArray()
       self.end_effector.data = fw_difference
@@ -333,16 +333,16 @@ class ImageConverter:
 
       #Forwardk Kinematics testing table
 
-      values1 = [2.1,3.4,5.6]
-      values2 = [0.2,3.4,5.6]
-      values3 = [2.2,3.4,5.6]
-      values4 = [1.2,3.4,5.6]
-      values5 = [1.7,3.4,5.6]
-      values6 = [0.2,3.4,5.6]
-      values7 = [-2.2,3.4,5.6]
-      values8 = [-1.3,3.4,5.6]
-      values9 = [0.9,3.4,5.6]
-      values10 = [-0.2,3.4,5.6]
+      values1 = [2.1,0.1,0.1]
+      values2 = [1.1, 0.7, 1.1]
+      values3 = [-1.1,-0.1,-0.1]
+      values4 = [-2.7, -0.1, -1.0]
+      values5 = [0.7,0.4,1.2]
+      values6 = [-2.7,0.4,1.3]
+      values7 = [-0.6,1.4,0.6]
+      values8 = [1.6,-1.4,-0.6]
+      values9 = [-0.9,1.1,-0.3]
+      values10 = [2.4,0.5,1.1]
 
       results1 = self.forward_kinematics_test(values1)
       results2 = self.forward_kinematics_test(values2)
@@ -354,8 +354,6 @@ class ImageConverter:
       results8 = self.forward_kinematics_test(values8)
       results9 = self.forward_kinematics_test(values9)
       results10 = self.forward_kinematics_test(values10)
-
-      posit1 = self.get_end_effector_pos(results1)
 
       print("real values:",values1)
       print("real values:",values2)
