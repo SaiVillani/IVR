@@ -19,23 +19,38 @@ class ImageConverter:
     # initialize the node named image_processing
     rospy.init_node('image_processing', anonymous=True)
 
-    # initialize the bridge between openCV and ROS
+    # initialize the bridge between openCV and ROS, 50Hz inverse signal
     self.bridge = CvBridge()
+    rate = rospy.rate(50)
 
-    # initialize a subscriber that receives joint angle estimates
-    self.joint_angle_1 = rospy.Subscriber("joint_angle_1", Float64, self.callback)
-    self.joint_angle_3 = rospy.Subscriber("joint_angle_3", Float64, self.callback)
-    self.joint_angle_4 = rospy.Subscriber("joint_angle_4", Float64, self.callback)
+    # initialize a publisher to send images from camera1 to a topic named image_topic1
+    self.image_pub1 = rospy.Publisher("image_topic1", Image, queue_size=1)
 
-    # initialize a publisher to send joints' controls forward kinematics
-    self.robot_pub_ja1_fw = rospy.Publisher("/robot/joint1_position_controller/command", Float64, queue_size=10)
-    self.robot_pub_ja3_fw = rospy.Publisher("/robot/joint3_position_controller/command", Float64, queue_size=10)
-    self.robot_pub_ja4_fw = rospy.Publisher("/robot/joint4_position_controller/command", Float64, queue_size=10)
+    # initialize a subscriber to receive camera1
+    self.image_sub1 = rospy.Subscriber("/camera1/robot/image_raw", Image, self.callback1)
 
-    # initialize a publisher to send joints' controls inverse kinematics
-    self.robot_pub_ja1_inv = rospy.Publisher("/robot/joint1_position_controller/command", Float64, queue_size=10)
-    self.robot_pub_ja3_inv = rospy.Publisher("/robot/joint3_position_controller/command", Float64, queue_size=10)
-    self.robot_pub_ja4_inv = rospy.Publisher("/robot/joint4_position_controller/command", Float64, queue_size=10)
+    # initialize a publisher to send images from camera2 to a topic named image_topic2
+    self.image_pub2 = rospy.Publisher("image_topic2", Image, queue_size=1)
+
+    # initialize a subscriber to receive camera2
+    self.image_sub2 = rospy.Subscriber("/camera2/robot/image_raw", Image, self.callback2)
+
+    # initialize a publisher to send robot end-effector position
+    self.end_effector_pub = rospy.Publisher("end_effector_prediction", Float64MultiArray, queue_size=10)
+
+    # initialize a publisher to send desired trajectory
+    self.trajectory_pub = rospy.Publisher("trajectory", Float64MultiArray, queue_size=10)
+
+    # initialize a publisher to send joints angles
+    self.joint1_pub = rospy.Publisher("joint_angle_1", Float64, queue_size=10)
+    self.joint3_pub = rospy.Publisher("joint_angle_3", Float64, queue_size=10)
+    self.joint4_pub = rospy.Publisher("joint_angle_4", Float64, queue_size=10)
+    self.target_pos_pub = rospy.Publisher("target_pos", Float64MultiArray, queue_size=10)
+
+    # initialize a publisher to send joints commands to arm
+    self.robot_joint1_pub = rospy.Publisher("/robot/joint1_position_controller/command", Float64, queue_size=10)
+    self.robot_joint3_pub = rospy.Publisher("/robot/joint3_position_controller/command", Float64, queue_size=10)
+    self.robot_joint4_pub = rospy.Publisher("/robot/joint4_position_controller/command", Float64, queue_size=10)
 
     # record the start time
     self.time_trajectory = rospy.get_time()
@@ -53,6 +68,11 @@ class ImageConverter:
     self.red_flag2 = False
     self.blue_flag1 = False
     self.blue_flag2 = False
+
+    self.b0 = 0
+    self.b1 = 0
+    self.b2 = 0
+
 
 
 
@@ -118,59 +138,136 @@ class ImageConverter:
     ja3 = np.arctan2(circle2Pos[0]-circle3Pos[0], circle2Pos[1]-circle3Pos[1]) - ja2 - ja1
     return np.array([ja1, ja2, ja3])
 
-    # detect robot end-effector from the image
-
-  def detect_end_effector(self,image):
-    a = self.pixel2meter(image)
-    endPos = a * (self.detect_yellow(image) - self.detect_red(image))
-    return endPos
-
 
   # Calculate the forward kinematics
-  def forward_kinematics(self,image):
-    joints = self.detect_joint_angles(image)
-    end_effector = np.array([3 * np.sin(joints[0]) + 3 * np.sin(joints[0]+joints[1]) + 3 *np.sin(joints.sum()),
-                             3 * np.cos(joints[0]) + 3 * np.cos(joints[0]+joints[1]) + 3 * np.cos(joints.sum()),
-                             3 * np.cos(joints[0]) + 3 * np.cos(joints[0]+joints[1]) + 3 * np.cos(joints.sum())])
-    return end_effector
+  def forward_kinematics(self, image1, image2):
+      joints = self.detect_joint_angles(image1, image2)
+      end_effector = np.array([2.8 * np.cos(joints[0]) * np.sin(joints[2]) + np.sin(joints[0]) * np.sin(
+          joints[1]) * (2.8 * np.cos(joints[2]) + 3.2),
+                               2.8 * np.sin(joints[0]) * np.sin(joints[2]) - np.cos(joints[0]) * np.sin(
+                                   joints[1]) * (2.8 * np.cos(joints[2]) + 3.2),
+                               np.cos(joints[1]) * (2.8 * np.cos(joints[2]) + 3.2) + 4.0])
+      return end_effector
+
+    #trajectory
+  def trajectory(self):
+      time = np.array([rospy.get_time()]) - self.t0
+      self.time_x = float(3.0 * np.cos(time * np.pi /20))
+      self.time_y = float(4.0 * np.sin(time * np.pi /14) + 0.5)
+      self.time_z = float(1.0 * np.sin(time * np.pi / 18) + 4.5)
+      return np.array([self.time_x, self.time_y, self.time_z])
 
   # Calculate the robot Jacobian
   def calculate_jacobian(self,image):
     joints = self.detect_joint_angles(image)
-    jacobian = np.array([[3 * np.cos(joints[0]) + 3 * np.cos(joints[0]+joints[1]) + 3 *np.cos(joints.sum()),
-                          3 * np.cos(joints[0]+joints[1]) + 3 *np.cos(joints.sum()),
-                          3 *np.cos(joints.sum())], [-3 * np.sin(joints[0]) - 3 * np.sin(joints[0]+joints[1]) - 3 * np.sin(joints.sum()),
-                                                     - 3 * np.sin(joints[0]+joints[1]) - 3 * np.sin(joints.sum()),
-                                                     - 3 * np.sin(joints.sum())]])
+    jacobian = np.array([[-2.8 * np.sin(joints[0]) * np.sin(joints[2]) + np.cos(joints[0]) * np.sin(
+        joints[1]) * (2.8 * np.cos(joints[2]) + 3.2),
+                          np.sin(joints[0]) * np.cos(joints[1]) * (2.8 * np.cos(joints[2]) + 3.2),
+                          2.8 * np.cos(joints[0]) * np.cos(joints[2]) + np.sin(joints[0]) * np.sin(
+                              joints[1]) * (-2.8 * np.cos(joints[2]))],
+                         [2.8 * np.cos(joints[0]) * np.sin(joints[2]) + np.sin(joints[0]) * np.sin(
+                             joints[1]) * (2.8 * np.cos(joints[2]) + 3.2),
+                          -np.cos(joints[0]) * np.cos(joints[1]) * (
+                                  2.8 * np.cos(joints[2]) + 3.2),
+                          2.8 * np.sin(joints[0]) * np.cos(joints[2]) - np.cos(joints[0]) * np.sin(
+                              joints[1]) * (-2.8 * np.cos(joints[2]))],
+                         [0, np.sin(joints[1]) * (2.8 * np.cos(joints[2]) + 3.2),
+                          (-2.8 * np.cos(joints[2]))]])
     return jacobian
 
   # Estimate control inputs for open-loop control
-  def control_open(self,image):
+  def control_open(self,image1, image2):
     # estimate time step
-    cur_time = rospy.get_time()
-    dt = cur_time - self.time_previous_step2
-    self.time_previous_step2 = cur_time
-    q = self.detect_joint_angles(image) # estimate initial value of joints'
-    J_inv = np.linalg.pinv(self.calculate_jacobian(image))  # calculating the psudeo inverse of Jacobian
-    pos = self.detect_end_effector(image)
-    # desired trajectory
-    pos_d= self.trajectory()
-    # estimate derivative of desired trajectory
-    self.error = (pos_d - pos)/dt
-    q_d = q + (dt * np.dot(J_inv, self.error.transpose()))  # desired joint angles to follow the trajectory
-    return q_d
+    time = rospy.get_time()
+    time_drift = time - self.time_previous_step2
+    self.time_previous_step2 = time
+    start_pos = self.detect_joint_angles(image1, image2)
+
+    jacobian_inverse = np.linalg.pinv(self.calculate_jacobian(image1, image2))  # calculating the psudeo inverse of Jacobian
+    pos = np.array([self.ja1, self.ja2, self.ja3], dtype="float64")
+
+    optimal_trajectory = self.trajectory()
+    self.error = (optimal_trajectory - pos)/time_drift
+    ja_trajectory = start_pos + (time_drift * np.dot(jacobian_inverse, self.error.transpose()))
+    print(start_pos)
+    print(jacobian_inverse)
+    print(pos)
+    print(optimal_trajectory)
+    print(self.error)
+    print(ja_trajectory)
+
+    return ja_trajectory
 
   # Recieve data, process it, and publish
-  def callback(self,data):
+  def callback1(self,data):
+      try:
+          self.cv_image1 = self.bridge.imgmsg_to_cv2(data, "bgr8")
+      except CvBridgeError as e:
+          print(e)
+          # Publish the results
+      try:
+            self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
+      except CvBridgeError as e:
+              print(e)
+  def callback2(self,data):
+      try:
+          self.cv_image2 = self.bridge.imgmsg_to_cv2(data, "bgr8")
+      except CvBridgeError as e:
+          print(e)
 
-    #Subscribe
-    self.v1 = self.joint_angle_1
-    self.v3 = self.joint_angle_3
-    self.v4 = self.joint_angle_4
-    print(self.v1)
-    print(self.v3)
-    print(self.v4)
+      a = self.detect_joint_angles(self.cv_image1, self.cv_image2)
 
+      if ((self.b0 > 1 and a[0] < -1) or (self.b0 < -1 and a[0] > 1)):
+          a[0] = -a[0]
+      self.b0 = a[0]
+
+      if ((self.b1 > 0.5 and a[1] < -0.5) or (self.b1 < -0.5 and a[1] > 0.5)):
+             a[1] = -a[1]
+      self.b1 = a[1]
+      if ((self.b2 > 0.5 and a[2] < -0.5) or (self.b2 < -0.5 and a[2] > 0.5)):
+          a[2] = -a[2]
+      self.b2 = a[2]
+
+      self.joint_angle_1 = Float64()
+      self.joint_angle_1.data = a[0]
+      self.joint_angle_3 = Float64()
+      self.joint_angle_3.data = a[1]
+      self.joint_angle_4 = Float64()
+      self.joint_angle_4.data = a[2]
+
+      # send control commands to joints
+      q_d = self.control_open(self.cv_image1, self.cv_image2)
+      self.joint1 = Float64()
+      self.joint1.data = q_d[0]
+      self.joint3 = Float64()
+      self.joint3.data = q_d[1]
+      self.joint4 = Float64()
+      self.joint4.data = q_d[2]
+
+      # compare the estimated position of robot end-effector calculated from images with forward kinematics
+      x_e = self.forward_kinematics(self.cv_image1, self.cv_image2)
+      x_e_image = np.array([self.red_x, self.red_y, self.red_z])
+      self.end_effector = Float64MultiArray()
+      self.end_effector.data = x_e_image
+
+      # Publishing the desired trajectory on a topic named trajectory
+      x_d = self.trajectory()  # getting the desired trajectory
+      self.trajectory_desired = Float64MultiArray()
+      self.trajectory_desired.data = x_d
+
+      # Publish the results
+      try:
+          self.robot_joint1_pub.publish(self.joint1)
+          self.robot_joint3_pub.publish(self.joint3)
+          self.robot_joint4_pub.publish(self.joint4)
+          self.image_pub2.publish(self.bridge.cv2_to_imgmsg(self.cv_image2, "bgr8"))
+          self.joint1_pub.publish(self.joint_angle_1)
+          self.joint3_pub.publish(self.joint_angle_3)
+          self.joint4_pub.publish(self.joint_angle_4)
+          self.end_effector_pub.publish(self.end_effector)
+          self.trajectory_pub.publish(self.trajectory_desired)
+      except CvBridgeError as e:
+          print(e)
 
 # call the class
 def main(args):
