@@ -233,12 +233,12 @@ class ImageConverter:
     optimal_trajectory = self.trajectory()
     self.error = (optimal_trajectory - pos)/time_drift
     ja_trajectory = start_pos + (time_drift * np.dot(jacobian_inverse, self.error.transpose()))
-    print(start_pos)
-    print(jacobian_inverse)
-    print(pos)
-    print(optimal_trajectory)
-    print(self.error)
-    print(ja_trajectory)
+    print("starting pos",start_pos)
+    print("jacobian inverse",jacobian_inverse)
+    print("position",pos)
+    print("optimal trajectory",optimal_trajectory)
+    print("error:",self.error)
+    print("Joint angle trajectory",ja_trajectory)
 
     return ja_trajectory
 
