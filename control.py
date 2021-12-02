@@ -23,14 +23,9 @@ class ImageConverter:
     self.bridge = CvBridge()
 
     # initialize a subscriber that receives joint angle estimates
-    self.joint_sub_ja1 = rospy.Subscriber("joint_angle_2_v1", Image, self.callback)
-    self.joint_sub_ja3 = rospy.Subscriber("joint_angle_3_v1", Image, self.callback)
-    self.joint_sub_ja4 = rospy.Subscriber("joint_angle_4_v1", Image, self.callback)
-
-    # initialize a subscriber that receives joint angle estimates
-    self.joint_sub_ja1 = rospy.Subscriber("joint_angle_1", Image, self.callback)
-    self.joint_sub_ja3 = rospy.Subscriber("joint_angle_3", Image, self.callback)
-    self.joint_sub_ja4 = rospy.Subscriber("joint_angle_4", Image, self.callback)
+    self.joint_angle_1 = rospy.Subscriber("joint_angle_1", Float64, self.callback)
+    self.joint_angle_3 = rospy.Subscriber("joint_angle_3", Float64, self.callback)
+    self.joint_angle_4 = rospy.Subscriber("joint_angle_4", Float64, self.callback)
 
     # initialize a publisher to send joints' controls forward kinematics
     self.robot_pub_ja1_fw = rospy.Publisher("/robot/joint1_position_controller/command", Float64, queue_size=10)
@@ -58,22 +53,6 @@ class ImageConverter:
     self.red_flag2 = False
     self.blue_flag1 = False
     self.blue_flag2 = False
-
-    # initialize a publisher to send messages to a topic named image_topic
-    self.image_pub = rospy.Publisher("image_topic", Image, queue_size=1)
-    # initialize a publisher to send joints' angular position to a topic called joints_pos
-    self.joints_pub = rospy.Publisher("joints_pos", Float64MultiArray, queue_size=10)
-    # initialize a publisher to send robot end-effector position
-    self.end_effector_pub = rospy.Publisher("end_effector_prediction", Float64MultiArray, queue_size=10)
-    # initialize a publisher to send desired trajectory
-    self.trajectory_pub = rospy.Publisher("trajectory", Float64MultiArray, queue_size=10)
-    # initialize a publisher to send joints' angular position to the robot
-    self.robot_joint1_pub = rospy.Publisher("/robot/joint1_position_controller/command", Float64, queue_size=10)
-    self.robot_joint2_pub = rospy.Publisher("/robot/joint2_position_controller/command", Float64, queue_size=10)
-    self.robot_joint3_pub = rospy.Publisher("/robot/joint3_position_controller/command", Float64, queue_size=10)
-
-    # initialize a subscriber to recieve messages rom a topic named /robot/camera1/image_raw and use callback function to recieve data
-    self.image_sub = rospy.Subscriber("/robot/camera1/image_raw", Image, self.callback)
 
 
 
@@ -183,54 +162,14 @@ class ImageConverter:
 
   # Recieve data, process it, and publish
   def callback(self,data):
-    # Recieve the image
-    try:
-      cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-    except CvBridgeError as e:
-      print(e)
 
-
-    cv2.imshow('window', cv_image)
-    cv2.waitKey(3)
-
-    # publish robot joints angles (lab 1 and 2)
-    self.joints=Float64MultiArray()
-    self.joints.data= self.detect_joint_angles(cv_image)
-
-
-    # compare the estimated position of robot end-effector calculated from images with forward kinematics(lab 3)
-    x_e = self.forward_kinematics(cv_image)
-    x_e_image = self.detect_end_effector(cv_image)
-    self.end_effector=Float64MultiArray()
-    self.end_effector.data= x_e_image
-
-    # send control commands to joints (lab 3)
-    q_d = self.control_open(cv_image)
-    self.joint1=Float64()
-    self.joint1.data= q_d[0]
-    self.joint2=Float64()
-    self.joint2.data= q_d[1]
-    self.joint3=Float64()
-    self.joint3.data= q_d[2]
-
-    # Publishing the desired trajectory on a topic named trajectory(lab 3)
-    x_d = self.trajectory()    # getting the desired trajectory
-    self.trajectory_desired= Float64MultiArray()
-    self.trajectory_desired.data=x_d
-
-    # Publish the results
-    try:
-      self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
-      self.joints_pub.publish(self.joints)
-      self.end_effector_pub.publish(self.end_effector)
-      self.trajectory_pub.publish(self.trajectory_desired)
-      self.robot_joint1_pub.publish(self.joint1)
-      self.robot_joint2_pub.publish(self.joint2)
-      self.robot_joint3_pub.publish(self.joint3)
-    except CvBridgeError as e:
-      print(e)
-
-
+    #Subscribe
+    self.v1 = self.joint_angle_1
+    self.v3 = self.joint_angle_3
+    self.v4 = self.joint_angle_4
+    print(self.v1)
+    print(self.v3)
+    print(self.v4)
 
 
 # call the class
