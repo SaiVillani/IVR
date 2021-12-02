@@ -45,14 +45,14 @@ class helper:
         # Publish the results
         try:
             self.robot_joint1_pub.publish(joint_angles[0])
-            cv2.waitKey(1)
+            cv2.waitKey(4500)
             self.robot_joint3_pub.publish(joint_angles[1])
-            cv2.waitKey(1)
+            cv2.waitKey(4500)
             self.robot_joint4_pub.publish(joint_angles[2])
-            cv2.waitKey(1)
+            cv2.waitKey(4500)
         except CvBridgeError as e:
             print(e)
-        cv2.waitKey(5)
+        # cv2.waitKey(5)
         return self.get_end_effector_pos(self.cv_image1, self.cv_image2)
 
     def detect_red(self, image):
@@ -151,11 +151,6 @@ class helper:
         except CvBridgeError as e:
             print(e)
 
-        self.time_now = rospy.get_time()
-        secs = self.time_now - self.time
-
-        
-
         values1 = [2.1, 0.1, 0.1]
         values2 = [1.1, 0.7, 1.1]
         values3 = [-1.1, -0.1, -0.1]
@@ -167,60 +162,83 @@ class helper:
         values9 = [-0.9, 1.1, -0.3]
         values10 = [2.4, 0.5, 1.1]
 
-        results1 = self.forward_kinematics_test(values1)
-        results2 = self.forward_kinematics_test(values2)
-        results3 = self.forward_kinematics_test(values3)
-        results4 = self.forward_kinematics_test(values4)
-        results5 = self.forward_kinematics_test(values5)
-        results6 = self.forward_kinematics_test(values6)
-        results7 = self.forward_kinematics_test(values7)
-        results8 = self.forward_kinematics_test(values8)
-        results9 = self.forward_kinematics_test(values9)
-        results10 = self.forward_kinematics_test(values10)
+        values_lst = [values1, values2,
+                    values3,
+                    values4,
+                    values5,
+                    values6,
+                    values7,
+                    values8,
+                    values9,
+                    values10]
 
-        actual1 = self.angle_to_pos(values1)
-        actual2 = self.angle_to_pos(values2)
-        actual3 = self.angle_to_pos(values3)
-        actual4 = self.angle_to_pos(values4)
-        actual5 = self.angle_to_pos(values5)
-        actual6 = self.angle_to_pos(values6)
-        actual7 = self.angle_to_pos(values7)
-        actual8 = self.angle_to_pos(values8)
-        actual9 = self.angle_to_pos(values9)
-        actual10 = self.angle_to_pos(values10)
+        if self.counter < 10:
+            print(self.counter + 1)
+            results = self.forward_kinematics_test(values_lst[self.counter])
+            actual = self.angle_to_pos(values_lst[self.counter])
+            cv2.waitKey(4000)
+            print("real values:", values_lst[self.counter])
+            print("real position:", actual)
+            print("FW: ", results)
 
-        print("real values:", values1)
-        print("real values:", values2)
-        print("real values:", values3)
-        print("real values:", values4)
-        print("real values:", values5)
-        print("real values:", values6)
-        print("real values:", values7)
-        print("real values:", values8)
-        print("real values:", values9)
-        print("real values:", values10)
 
-        print("real position:", actual1)
-        print("real position:", actual2)
-        print("real position:", actual3)
-        print("real position:", actual4)
-        print("real position:", actual5)
-        print("real position:", actual6)
-        print("real position:", actual7)
-        print("real position:", actual8)
-        print("real position:", actual9)
-        print("real position:", actual10)
+        self.counter += 1
 
-        print("FW: ", results1)
-        print("FW: ", results2)
-        print("FW: ", results3)
-        print("FW: ", results4)
-        print("FW: ", results5)
-        print("FW: ", results6)
-        print("FW: ", results7)
-        print("FW: ", results8)
-        print("FW: ", results9)
-        print("FW: ", results10)
+
+        # results1 = self.forward_kinematics_test(values1)
+        # results2 = self.forward_kinematics_test(values2)
+        # results3 = self.forward_kinematics_test(values3)
+        # results4 = self.forward_kinematics_test(values4)
+        # results5 = self.forward_kinematics_test(values5)
+        # results6 = self.forward_kinematics_test(values6)
+        # results7 = self.forward_kinematics_test(values7)
+        # results8 = self.forward_kinematics_test(values8)
+        # results9 = self.forward_kinematics_test(values9)
+        # results10 = self.forward_kinematics_test(values10)
+
+        # actual1 = self.angle_to_pos(values1)
+        # actual2 = self.angle_to_pos(values2)
+        # actual3 = self.angle_to_pos(values3)
+        # actual4 = self.angle_to_pos(values4)
+        # actual5 = self.angle_to_pos(values5)
+        # actual6 = self.angle_to_pos(values6)
+        # actual7 = self.angle_to_pos(values7)
+        # actual8 = self.angle_to_pos(values8)
+        # actual9 = self.angle_to_pos(values9)
+        # actual10 = self.angle_to_pos(values10)
+
+        # print("real values:", values1)
+        # print("real values:", values2)
+        # print("real values:", values3)
+        # print("real values:", values4)
+        # print("real values:", values5)
+        # print("real values:", values6)
+        # print("real values:", values7)
+        # print("real values:", values8)
+        # print("real values:", values9)
+        # print("real values:", values10)
+        #
+        # print("real position:", actual1)
+        # print("real position:", actual2)
+        # print("real position:", actual3)
+        # print("real position:", actual4)
+        # print("real position:", actual5)
+        # print("real position:", actual6)
+        # print("real position:", actual7)
+        # print("real position:", actual8)
+        # print("real position:", actual9)
+        # print("real position:", actual10)
+        #
+        # print("FW: ", results1)
+        # print("FW: ", results2)
+        # print("FW: ", results3)
+        # print("FW: ", results4)
+        # print("FW: ", results5)
+        # print("FW: ", results6)
+        # print("FW: ", results7)
+        # print("FW: ", results8)
+        # print("FW: ", results9)
+        # print("FW: ", results10)
 
 
     def forward_kinematics_test(self,value):
