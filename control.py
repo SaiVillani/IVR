@@ -147,14 +147,23 @@ class ImageConverter:
 
 
   # Calculate the forward kinematics
-  def forward_kinematics(self, image1, image2):
-      # joints = self.detect_joint_angles(image1, image2)
-
+  def forward_kinematics(self):
       end_effector = np.array([2.8 * np.cos(self.joint_angles[0]) * np.sin(self.joint_angles[2]) + np.sin(self.joint_angles[0]) * np.sin(
           self.joint_angles[1]) * (2.8 * np.cos(self.joint_angles[2]) + 3.2),
                                2.8 * np.sin(self.joint_angles[0]) * np.sin(self.joint_angles[2]) - np.cos(self.joint_angles[0]) * np.sin(
                                    self.joint_angles[1]) * (2.8 * np.cos(self.joint_angles[2]) + 3.2),
                                np.cos(self.joint_angles[1]) * (2.8 * np.cos(self.joint_angles[2]) + 3.2) + 4.0])
+      return end_effector
+
+
+    # Calculate the forward kinematics
+  def forward_kinematics_test(self,value):
+      angles = value
+      end_effector = np.array([2.8 * np.cos(angles[0]) * np.sin(angles[2]) + np.sin(angles[0]) * np.sin(
+          angles[1]) * (2.8 * np.cos(angles[2]) + 3.2),
+                               2.8 * np.sin(angles[0]) * np.sin(angles[2]) - np.cos(angles[0]) * np.sin(
+                                   angles[1]) * (2.8 * np.cos(angles[2]) + 3.2),
+                               np.cos(angles[1]) * (2.8 * np.cos(angles[2]) + 3.2) + 4.0])
       return end_effector
 
     #trajectory
@@ -233,12 +242,12 @@ class ImageConverter:
     optimal_trajectory = self.trajectory()
     self.error = (optimal_trajectory - pos)/time_drift
     ja_trajectory = start_pos + (time_drift * np.dot(jacobian_inverse, self.error.transpose()))
-    print("starting pos",start_pos)
-    print("jacobian inverse",jacobian_inverse)
-    print("position",pos)
-    print("optimal trajectory",optimal_trajectory)
-    print("error:",self.error)
-    print("Joint angle trajectory",ja_trajectory)
+    #print("starting pos",start_pos)
+    #print("jacobian inverse",jacobian_inverse)
+    #print("position",pos)
+    #print("optimal trajectory",optimal_trajectory)
+    #print("error:",self.error)
+    #print("Joint angle trajectory",ja_trajectory)
 
     return ja_trajectory
 
@@ -313,14 +322,64 @@ class ImageConverter:
 
       # compare the estimated position of robot end-effector calculated from images with forward kinematics
       fw_difference = self.forward_kinematics(self.cv_image1, self.cv_image2)
-      fw_difference_image = self.get_end_effector_pos(self.cv_image1,self.cv_image2)
+      #fw_difference_image = self.get_end_effector_pos(self.cv_image1,self.cv_image2)
       self.end_effector = Float64MultiArray()
-      self.end_effector.data = fw_difference_image
+      self.end_effector.data = fw_difference
 
       # Publishing the desired trajectory on a topic named trajectory
       optimal_trajectory = self.trajectory()  # getting the desired trajectory
       self.trajectory_optimal = Float64MultiArray()
       self.trajectory_optimal.data = optimal_trajectory
+
+      #Forwardk Kinematics testing table
+
+      values1 = [2.1,3.4,5.6]
+      values2 = [0.2,3.4,5.6]
+      values3 = [2.2,3.4,5.6]
+      values4 = [1.2,3.4,5.6]
+      values5 = [1.7,3.4,5.6]
+      values6 = [0.2,3.4,5.6]
+      values7 = [-2.2,3.4,5.6]
+      values8 = [-1.3,3.4,5.6]
+      values9 = [0.9,3.4,5.6]
+      values10 = [-0.2,3.4,5.6]
+
+      results1 = self.forward_kinematics_test(values1)
+      results2 = self.forward_kinematics_test(values2)
+      results3 = self.forward_kinematics_test(values3)
+      results4 = self.forward_kinematics_test(values4)
+      results5 = self.forward_kinematics_test(values5)
+      results6 = self.forward_kinematics_test(values6)
+      results7 = self.forward_kinematics_test(values7)
+      results8 = self.forward_kinematics_test(values8)
+      results9 = self.forward_kinematics_test(values9)
+      results10 = self.forward_kinematics_test(values10)
+
+      posit1 = self.get_end_effector_pos(results1)
+
+      print("real values:",values1)
+      print("real values:",values2)
+      print("real values:",values3)
+      print("real values:",values4)
+      print("real values:",values5)
+      print("real values:",values6)
+      print("real values:",values7)
+      print("real values:",values8)
+      print("real values:",values9)
+      print("real values:",values10)
+
+      print("FW: ", results1)
+      print("FW: ", results2)
+      print("FW: ", results3)
+      print("FW: ", results4)
+      print("FW: ", results5)
+      print("FW: ", results6)
+      print("FW: ", results7)
+      print("FW: ", results8)
+      print("FW: ", results9)
+      print("FW: ", results10)
+
+
 
       # Publish the results
       try:
