@@ -1,0 +1,166 @@
+Labs + Assignment
+
+mkdir catkin_ws
+cd catkin_ws
+mkdir src
+
+cd ~/catkin_ws
+catkin_make
+source devel/setup.bash
+source /opt/ros/noetic/setup.bash
+source ~/catkin_ws/devel/setup.bash
+
+cd ~/catkin_ws/src/ivr_assignment/src
+chmod +x image1.py image2.py
+chmod +x vision_1.py
+
+
+############## RUN THIS AT THE START #################
+cd ~/catkin_ws
+catkin_make
+source devel/setup.bash
+source /opt/ros/noetic/setup.bash
+source ~/catkin_ws/devel/setup.bash
+
+cd ~/catkin_ws/src/ivr_assignment/src
+chmod +x image1.py image2.py
+chmod +x vision_1.py vision_2.py sin_signals1.py sin_signals2.py control.py target.py helper.py
+
+cd ~/catkin_ws
+roslaunch ivr_assignment spawn.launch
+
+
+# TO RUN THE SCRIPT
+cd ~/catkin_ws
+rosrun ivr_assignment sin_signals1.py
+rosrun ivr_assignment sin_signals2.py
+rosrun ivr_assignment vision_1.py
+rosrun ivr_assignment vision_2.py
+rosrun ivr_assignment image1.py 
+rosrun ivr_assignment image2.py
+rosrun ivr_assignment control.py
+rosrun ivr_assignment target.py
+rosrun ivr_assignment helper.py
+
+cd ~/catkin_ws
+roslaunch ivr_assignment spawn.launch
+rostopic pub -1 /robot/joint1_position_controller/command std_msgs/Float64 "data: 1.0"
+
+rostopic echo /joints_pos
+rostopic echo /robot/joint2_position_controller/command
+
+# TO PLOT THE STUFF
+rqt_plot robot/joint2_position_controller/command joints_pos/data[0] joints_pos2/data[0]
+rqt_plot robot/joint3_position_controller/command joints_pos/data[1] joints_pos2/data[1]
+rqt_plot robot/joint4_position_controller/command joints_pos/data[2] joints_pos2/data[2]
+
+#### CHECK STUFF
+rostopic echo /joints_pos2
+rostopic echo /joint_angle_1
+rostopic echo /joint_angle_2
+rostopic echo /joint_angle_3
+rostopic echo /joint_angle_4
+
+## VISION STUFF
+rqt_plot robot/joint1_position_controller/command joint_angle_1 
+rqt_plot robot/joint2_position_controller/command joint_angle_2 
+rqt_plot robot/joint3_position_controller/command joint_angle_3 
+rqt_plot robot/joint4_position_controller/command joint_angle_4 
+
+# RESET ALL
+rostopic pub -1 /robot/joint1_position_controller/command std_msgs/Float64 "data: 0.0"
+rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: 0.0"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: 0.0"
+rostopic pub -1 /robot/joint4_position_controller/command std_msgs/Float64 "data: 0.0"
+
+# PLOTTING GRAPHS FOR INVERSE KINEMATICS
+rqt_plot target_control/target_pos target_pos 
+
+
+#### FORWARD KINEMATICS #####
+rostopic pub -1 /robot/joint1_position_controller/command std_msgs/Float64 "data: -2.0"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: -1.5"
+rostopic pub -1 /robot/joint4_position_controller/command std_msgs/Float64 "data: -1.5"
+
+
+### INVESTIGATION ###
+
+- Cases where camera two fails to get the red node (always when joint angle 3 is near -pi/2 regardless of joint angles 2 and 4)
+rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: -1.5"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: -1.5"
+rostopic pub -1 /robot/joint4_position_controller/command std_msgs/Float64 "data: -1.5"
+
+rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: -1.5"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: -1.5"
+rostopic pub -1 /robot/joint4_position_controller/command std_msgs/Float64 "data: 0.0"
+
+rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: -1.0"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: -1.5"
+rostopic pub -1 /robot/joint4_position_controller/command std_msgs/Float64 "data: 0.0"
+
+rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: 0.0"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: -1.5"
+rostopic pub -1 /robot/joint4_position_controller/command std_msgs/Float64 "data: 0.0"
+
+rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: 1.5"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: -1.5"
+rostopic pub -1 /robot/joint4_position_controller/command std_msgs/Float64 "data: 0.0"
+
+rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: 1.5"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: -1.5"
+rostopic pub -1 /robot/joint4_position_controller/command std_msgs/Float64 "data: 1.5"
+
+
+- Additional cases where camera files to get blue node (camera 2) i.e. node 2
+
+-- yellow circle in the middle above the joint 1
+rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: 0.0"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: -1.5"
+
+-- yellow circle is slightly on the left
+rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: -1.5"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: -1.5"
+
+-- yellow circle is slightly on the right
+rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: 1.5"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: -1.5"
+
+- Cases where camera fails to get blue node camera 1 i.e. joint 3
+- Blue ball kind of hidden
+rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: -1.5"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: 0.0"
+
+- Red ball infront
+rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: 1.5"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: 0.0"
+
+
+-- When the joint angle 3 is close to pi/2, the joint angle 2 is not very discernible (negative and positive values all around right quadrants)
+
+e.g.
+rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: -0.2"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: 1.3"
+
+and
+rostopic pub -1 /robot/joint2_position_controller/command std_msgs/Float64 "data: 0.5"
+rostopic pub -1 /robot/joint3_position_controller/command std_msgs/Float64 "data: 1.3"
+
+======================================================================================================
+FOR LABS
+
+roslaunch ivr_lab spawn.launch
+
+cd ~/catkin_ws/src/ivr_lab/src
+chmod +x image_processing.py
+
+rosrun ivr_lab image_processing.py
+
+
+rostopic echo /joints_pos
+
+rostopic pub -1 /robot/joint1_position_controller/command std_msgs/Float64 "data: 1.0"
+
+
+
+Lab2
+
