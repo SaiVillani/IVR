@@ -149,12 +149,19 @@ class ImageConverter:
   # Calculate the forward kinematics
   def forward_kinematics(self, image1, image2):
       # joints = self.detect_joint_angles(image1, image2)
-
-      end_effector = np.array([2.8 * np.cos(self.joint_angles[0]) * np.sin(self.joint_angles[2]) + np.sin(self.joint_angles[0]) * np.sin(
-          self.joint_angles[1]) * (2.8 * np.cos(self.joint_angles[2]) + 3.2),
-                               2.8 * np.sin(self.joint_angles[0]) * np.sin(self.joint_angles[2]) - np.cos(self.joint_angles[0]) * np.sin(
-                                   self.joint_angles[1]) * (2.8 * np.cos(self.joint_angles[2]) + 3.2),
-                               np.cos(self.joint_angles[1]) * (2.8 * np.cos(self.joint_angles[2]) + 3.2) + 4.0])
+      angles = self.joint_angles
+      end_effector = np.array([2.8 * np.sin(angles[0]) * np.sin(angles[2]) * np.cos(angles[1]) + 2.8 * np.sin(
+          angles[1]) * np.cos(angles[2]) + 3.2 * np.sin(angles[2]) * np.cos(angles[0] - np.pi / 2),
+                               -2.8 * np.sin(angles[0]) * np.cos(angles[1]) * np.cos(angles[2]) + 2.8 * np.sin(
+                                   angles[1]) * np.sin(angles[2]) - 3.2 * np.cos(angles[2]) * np.cos(
+                                   angles[1] - np.pi / 2),
+                               -3.2 * np.sin(angles[0] - np.pi / 2) + 2.8 * np.cos(angles[0]) * np.cos(angles[1]) + 4])
+      #
+      # end_effector = np.array([2.8 * np.cos(self.joint_angles[0]) * np.sin(self.joint_angles[2]) + np.sin(self.joint_angles[0]) * np.sin(
+      #     self.joint_angles[1]) * (2.8 * np.cos(self.joint_angles[2]) + 3.2),
+      #                          2.8 * np.sin(self.joint_angles[0]) * np.sin(self.joint_angles[2]) - np.cos(self.joint_angles[0]) * np.sin(
+      #                              self.joint_angles[1]) * (2.8 * np.cos(self.joint_angles[2]) + 3.2),
+      #                          np.cos(self.joint_angles[1]) * (2.8 * np.cos(self.joint_angles[2]) + 3.2) + 4.0])
       return end_effector
 
     #trajectory
