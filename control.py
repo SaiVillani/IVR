@@ -10,7 +10,7 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import Float64MultiArray, Float64
 from cv_bridge import CvBridge, CvBridgeError
 import os
-
+import random
 
 class ImageConverter:
 
@@ -147,23 +147,14 @@ class ImageConverter:
 
 
   # Calculate the forward kinematics
-  def forward_kinematics(self):
+  def forward_kinematics(self, image1, image2):
+      # joints = self.detect_joint_angles(image1, image2)
+
       end_effector = np.array([2.8 * np.cos(self.joint_angles[0]) * np.sin(self.joint_angles[2]) + np.sin(self.joint_angles[0]) * np.sin(
           self.joint_angles[1]) * (2.8 * np.cos(self.joint_angles[2]) + 3.2),
                                2.8 * np.sin(self.joint_angles[0]) * np.sin(self.joint_angles[2]) - np.cos(self.joint_angles[0]) * np.sin(
                                    self.joint_angles[1]) * (2.8 * np.cos(self.joint_angles[2]) + 3.2),
                                np.cos(self.joint_angles[1]) * (2.8 * np.cos(self.joint_angles[2]) + 3.2) + 4.0])
-      return end_effector
-
-
-    # Calculate the forward kinematics
-  def forward_kinematics_test(self,value):
-      angles = value
-      end_effector = np.array([2.8 * np.cos(angles[0]) * np.sin(angles[2]) + np.sin(angles[0]) * np.sin(
-          angles[1]) * (2.8 * np.cos(angles[2]) + 3.2),
-                               2.8 * np.sin(angles[0]) * np.sin(angles[2]) - np.cos(angles[0]) * np.sin(
-                                   angles[1]) * (2.8 * np.cos(angles[2]) + 3.2),
-                               np.cos(angles[1]) * (2.8 * np.cos(angles[2]) + 3.2) + 4.0])
       return end_effector
 
     #trajectory
@@ -227,6 +218,39 @@ class ImageConverter:
 
       return np.array([circle3Pos_xz[0], circle3Pos_yz[0] ,(circle3Pos_xz[1] + circle3Pos_yz[1])/2])
 
+    # Calculate the forward kinematics
+  def forward_kinematics_test(self,value):
+      angles = value
+      # end_effector = np.array([2.8 * np.cos(angles[0]) * np.sin(angles[2]) + np.sin(angles[0]) * np.sin(
+      #     angles[1]) * (2.8 * np.cos(angles[2]) + 3.2),
+      #                          2.8 * np.sin(angles[0]) * np.sin(angles[2]) - np.cos(angles[0]) * np.sin(
+      #                              angles[1]) * (2.8 * np.cos(angles[2]) + 3.2),
+      #                          np.cos(angles[1]) * (2.8 * np.cos(angles[2]) + 3.2) + 4.0])
+
+      end_effector = np.array([2.8 * np.sin(angles[0]) * np.sin(angles[2]) * np.cos(angles[1]) + 2.8 * np.sin(
+          angles[1]) * np.cos(angles[2]) + 3.2 * np.sin(angles[2]) * np.cos(angles[0] - np.pi / 2),
+                               -2.8 * np.sin(angles[0]) * np.cos(angles[1]) * np.cos(angles[2]) + 2.8 * np.sin(
+                                   angles[1]) * np.sin(angles[2]) - 3.2 * np.cos(angles[2]) * np.cos(
+                                   angles[1] - np.pi / 2),
+                               -3.2 * np.sin(angles[0] - np.pi / 2) + 2.8 * np.cos(angles[0]) * np.cos(angles[1]) + 4])
+
+      return end_effector
+
+  def angle_to_pos(self, joint_angles):
+      # Publish the results
+      try:
+          self.robot_joint1_pub.publish(joint_angles[0])
+          cv2.waitKey(1)
+          self.robot_joint3_pub.publish(joint_angles[1])
+          cv2.waitKey(1)
+          self.robot_joint4_pub.publish(joint_angles[2])
+          cv2.waitKey(1)
+      except CvBridgeError as e:
+          print(e)
+      cv2.waitKey(5)
+      return self.get_end_effector_pos(self.cv_image1, self.cv_image2)
+
+
 
   # Estimate control inputs for open-loop control
   def control_open(self,image1, image2):
@@ -242,12 +266,12 @@ class ImageConverter:
     optimal_trajectory = self.trajectory()
     self.error = (optimal_trajectory - pos)/time_drift
     ja_trajectory = start_pos + (time_drift * np.dot(jacobian_inverse, self.error.transpose()))
-    #print("starting pos",start_pos)
-    #print("jacobian inverse",jacobian_inverse)
-    #print("position",pos)
-    #print("optimal trajectory",optimal_trajectory)
-    #print("error:",self.error)
-    #print("Joint angle trajectory",ja_trajectory)
+    print("starting pos",start_pos)
+    print("jacobian inverse",jacobian_inverse)
+    print("position",pos)
+    print("optimal trajectory",optimal_trajectory)
+    print("error:",self.error)
+    print("Joint angle trajectory",ja_trajectory)
 
     return ja_trajectory
 
@@ -321,8 +345,8 @@ class ImageConverter:
       self.joint4.data = controlFW[2]
 
       # compare the estimated position of robot end-effector calculated from images with forward kinematics
-      fw_difference = self.forward_kinematics()
-      #fw_difference_image = self.get_end_effector_pos(self.cv_image1,self.cv_image2)
+      fw_difference = self.forward_kinematics(self.cv_image1, self.cv_image2)
+      fw_difference_image = self.get_end_effector_pos(self.cv_image1,self.cv_image2)
       self.end_effector = Float64MultiArray()
       self.end_effector.data = fw_difference
 
@@ -331,53 +355,73 @@ class ImageConverter:
       self.trajectory_optimal = Float64MultiArray()
       self.trajectory_optimal.data = optimal_trajectory
 
-      #Forwardk Kinematics testing table
-
-      values1 = [2.1,0.1,0.1]
-      values2 = [1.1, 0.7, 1.1]
-      values3 = [-1.1,-0.1,-0.1]
-      values4 = [-2.7, -0.1, -1.0]
-      values5 = [0.7,0.4,1.2]
-      values6 = [-2.7,0.4,1.3]
-      values7 = [-0.6,1.4,0.6]
-      values8 = [1.6,-1.4,-0.6]
-      values9 = [-0.9,1.1,-0.3]
-      values10 = [2.4,0.5,1.1]
-
-      results1 = self.forward_kinematics_test(values1)
-      results2 = self.forward_kinematics_test(values2)
-      results3 = self.forward_kinematics_test(values3)
-      results4 = self.forward_kinematics_test(values4)
-      results5 = self.forward_kinematics_test(values5)
-      results6 = self.forward_kinematics_test(values6)
-      results7 = self.forward_kinematics_test(values7)
-      results8 = self.forward_kinematics_test(values8)
-      results9 = self.forward_kinematics_test(values9)
-      results10 = self.forward_kinematics_test(values10)
-
-      print("real values:",values1)
-      print("real values:",values2)
-      print("real values:",values3)
-      print("real values:",values4)
-      print("real values:",values5)
-      print("real values:",values6)
-      print("real values:",values7)
-      print("real values:",values8)
-      print("real values:",values9)
-      print("real values:",values10)
-
-      print("FW: ", results1)
-      print("FW: ", results2)
-      print("FW: ", results3)
-      print("FW: ", results4)
-      print("FW: ", results5)
-      print("FW: ", results6)
-      print("FW: ", results7)
-      print("FW: ", results8)
-      print("FW: ", results9)
-      print("FW: ", results10)
-
-
+      #Forward Kinematics testing table
+      #
+      # values1 = [2.1, 0.1, 0.1]
+      # values2 = [1.1, 0.7, 1.1]
+      # values3 = [-1.1, -0.1, -0.1]
+      # values4 = [-2.7, -0.1, -1.0]
+      # values5 = [0.7, 0.4, 1.2]
+      # values6 = [-2.7, 0.4, 1.3]
+      # values7 = [-0.6, 1.4, 0.6]
+      # values8 = [1.6, -1.4, -0.6]
+      # values9 = [-0.9, 1.1, -0.3]
+      # values10 = [2.4, 0.5, 1.1]
+      #
+      # results1 = self.forward_kinematics_test(values1)
+      # results2 = self.forward_kinematics_test(values2)
+      # results3 = self.forward_kinematics_test(values3)
+      # results4 = self.forward_kinematics_test(values4)
+      # results5 = self.forward_kinematics_test(values5)
+      # results6 = self.forward_kinematics_test(values6)
+      # results7 = self.forward_kinematics_test(values7)
+      # results8 = self.forward_kinematics_test(values8)
+      # results9 = self.forward_kinematics_test(values9)
+      # results10 = self.forward_kinematics_test(values10)
+      #
+      # actual1 = self.angle_to_pos(values1)
+      # actual2 = self.angle_to_pos(values2)
+      # actual3 = self.angle_to_pos(values3)
+      # actual4 = self.angle_to_pos(values4)
+      # actual5 = self.angle_to_pos(values5)
+      # actual6 = self.angle_to_pos(values6)
+      # actual7 = self.angle_to_pos(values7)
+      # actual8 = self.angle_to_pos(values8)
+      # actual9 = self.angle_to_pos(values9)
+      # actual10 = self.angle_to_pos(values10)
+      #
+      # print("real values:",values1)
+      # print("real values:",values2)
+      # print("real values:",values3)
+      # print("real values:",values4)
+      # print("real values:",values5)
+      # print("real values:",values6)
+      # print("real values:",values7)
+      # print("real values:",values8)
+      # print("real values:",values9)
+      # print("real values:",values10)
+      #
+      # print("real position:",actual1)
+      # print("real position:",actual2)
+      # print("real position:",actual3)
+      # print("real position:",actual4)
+      # print("real position:",actual5)
+      # print("real position:",actual6)
+      # print("real position:",actual7)
+      # print("real position:",actual8)
+      # print("real position:",actual9)
+      # print("real position:",actual10)
+      #
+      # print("FW: ", results1)
+      # print("FW: ", results2)
+      # print("FW: ", results3)
+      # print("FW: ", results4)
+      # print("FW: ", results5)
+      # print("FW: ", results6)
+      # print("FW: ", results7)
+      # print("FW: ", results8)
+      # print("FW: ", results9)
+      # print("FW: ", results10)
 
       # Publish the results
       try:
@@ -390,6 +434,7 @@ class ImageConverter:
           self.joint4_pub.publish(self.joint_angle_4)
           self.end_effector_pub.publish(self.end_effector)
           self.trajectory_pub.publish(self.trajectory_optimal)
+          self.target_pos_pub.publish(self.trajectory_optimal)
       except CvBridgeError as e:
           print(e)
 
